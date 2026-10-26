@@ -1,0 +1,58 @@
+{
+  "name": "@local/dsh-persona-memory",
+  "version": "0.5.3",
+  "private": true,
+  "type": "module",
+  "main": "./index.js",
+  "license": "MIT",
+  "description": "Persona mode with character cards, Ebbinghaus-style long-term memory, and a diary.",
+  "author": "IFLICC",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IFLICC/dsh-persona-memory.git"
+  },
+  "homepage": "https://github.com/IFLICC/dsh-persona-memory#readme",
+  "bugs": {
+    "url": "https://github.com/IFLICC/dsh-persona-memory/issues"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "persona",
+    "memory",
+    "ebbinghaus",
+    "diary"
+  ],
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check index.js && node --check client.js && node --check lib/store.js"
+  },
+  "exports": {
+    ".": "./index.js",
+    "./client": "./client.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "lib",
+    "client.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "README.md"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
+    "client": {
+      "platform": "web",
+      "immediately": true
+    }
+  }
+}

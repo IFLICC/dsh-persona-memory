@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Persona Memory">
+  <defs>
+    <linearGradient id="pm-g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#4f7cff"/>
+      <stop offset="1" stop-color="#7c4dff"/>
+    </linearGradient>
+  </defs>
+  <rect x="2" y="2" width="60" height="60" rx="16" fill="url(#pm-g)"/>
+  <path d="M13 41c0-9 4-17 11-17 5 0 6 7 11 7 4 0 6-4 11-4 3 0 5 1 6 2"
+        fill="none" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round" opacity="0.95"/>
+  <circle cx="13" cy="41" r="3.2" fill="#ffffff"/>
+  <circle cx="30" cy="27" r="2.6" fill="#ffffff" opacity="0.9"/>
+  <circle cx="41" cy="31" r="2.4" fill="#ffffff" opacity="0.72"/>
+  <circle cx="49" cy="29" r="2.1" fill="#ffffff" opacity="0.55"/>
+  <path d="M21 48h22" stroke="#ffffff" stroke-width="2.4" stroke-linecap="round" opacity="0.42"/>
+</svg>

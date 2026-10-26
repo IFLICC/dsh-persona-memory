@@ -1,0 +1,3 @@
+- insert:
+    - id: persona-memory
+      name: '@local/dsh-persona-memory'

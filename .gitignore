@@ -1,0 +1,15 @@
+# Dependencies
+node_modules/
+
+# OS and editor noise
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.log
+
+# Local scratch data (the real store lives in DSH_HOME)
+.tmp*/
+persona-memory/
+*.tmp
+.env
