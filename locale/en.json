@@ -1,6 +1,6 @@
 {
   "meta": {
     "title": "Persona Memory",
-    "description": "Keeps a character persona in the prompt, remembers facts along a forgetting curve, and writes diaries."
+    "description": "Keeps a character persona in the prompt, remembers facts along a forgetting curve, and writes diaries and a reference library."
   }
 }

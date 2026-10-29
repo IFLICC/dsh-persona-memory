@@ -1,21 +1,22 @@
 # 人格记忆 · Persona Memory
 
-[![CI](https://github.com/IFLICC/dsh-persona-memory/actions/workflows/ci.yml/badge.svg)](https://github.com/IFLICC/dsh-persona-memory/actions/workflows/ci.yml)
+[![CI](https://github.com/ifenc/dsh-persona-memory/actions/workflows/ci.yml/badge.svg)](https://github.com/ifenc/dsh-persona-memory/actions/workflows/ci.yml)
 
-给 [DeepSeek Harness (DSH)](https://github.com/deepseek-ai) 加上「人设 + 长期记忆 + 日记」的本地插件。
+给 [DeepSeek Harness (DSH)](https://github.com/deepseek-ai) 加上「人设 + 长期记忆 + 日记 + 资料库」的本地插件。
 
-English: a local-first DSH plugin that keeps a character card in the system prompt, remembers facts on an Ebbinghaus forgetting curve, and keeps per-character diaries.
+English: a local-first DSH plugin that keeps a character card in the system prompt, remembers facts on an Ebbinghaus forgetting curve, and keeps per-character diaries and a reference library.
 
 ## 功能
 
 - **人设模式（按对话独立）**：每个对话单独开关；打开后，当前人物卡会和记忆一起进入这个对话的系统提示词，切换到别的对话不会跟着变。新对话默认关闭。
-- **人物卡 + 记忆/日记绑定**：每张人物卡有自己的一组记忆和日记；切换人物卡时提示词、记忆列表和日记本都会切到对应的那一套。可以单独清空当前人物卡的记忆，记忆与日记的导入/导出也只针对当前卡；删除人物卡会连同它的记忆和日记一起删除。
+- **人物卡 + 记忆/日记/资料绑定**：每张人物卡有自己的一组记忆、日记和资料库；切换人物卡时提示词、记忆列表、日记本和资料库都会切到对应的那一套。可以单独清空当前人物卡的记忆和资料库，导入/导出也只针对当前卡；删除人物卡会连同它的记忆、日记和资料一起删除。
 - **关闭后的语气提醒**：在一个开过人设的对话里关闭人设后，会额外注入一句很短的提醒，要求用普通助手语气、不要沿用之前的角色自称和动作描写，用来对抗对话历史的惯性。
 - **艾宾浩斯记忆**：记忆的清晰度按遗忘曲线随时间衰减；越久不回顾掉得越快。被注入提示词或主动复习会延长保留时间；重要记忆可置顶，永不遗忘。清晰度低于阈值后自动移入「已遗忘」，可以恢复。
 - **日记**：可以开启「日记功能」让模型在对话自然收束时写日记；也可以开启「自动摘要」，每轮结束后把你说过的要点在本地汇总成当天的日记（不额外消耗模型调用）。
-- **工具**：`persona`、`persona_memory`、`persona_diary`，可以直接用自然语言让人设调整、记忆增删、写日记；记忆和日记工具始终作用于当前人物卡。
-- **导入导出**：人物卡、记忆、日记都可以单独导出为 JSON，也可以一键备份/恢复全部数据；导入时可以选择合并（去重）或覆盖。
-- **界面**：设置 →「人格记忆」里有卡片编辑、记忆列表（含清晰度条）、日记本和参数设置；输入框下方（新对话在新会话行）的开关只作用于当前对话，**左键开关、右键呼出菜单**选择关闭或切换人物卡；设置页还提供「全部关闭」。人设只注入主对话，子 Agent 不受影响。开关带「开 / 关」文字，说明性提示收进圆圈问号图标，鼠标悬停或聚焦时显示。
+- **资料库**：每张人物卡有自己的资料库，可以收录聊天里的梗、知识笔记、网上查到的资料（带来源链接）。模型通过 `persona_library` 工具搜索/查阅，学到新东西时会自动补充；用户可以在设置里手动新增、编辑、清空，或按当前卡导入导出。
+- **工具**：`persona`、`persona_memory`、`persona_diary`、`persona_library`，可以直接用自然语言让人设调整、记忆增删、写日记、查/记资料；这些工具都作用于当前人物卡。
+- **导入导出**：人物卡、记忆、日记、资料库都可以单独导出为 JSON，也可以一键备份/恢复全部数据；导入时可以选择合并（去重）或覆盖。
+- **界面**：设置 →「人格记忆」里有卡片编辑、记忆列表（含清晰度条）、资料库、日记本和参数设置；输入框下方（新对话在新会话行）的开关只作用于当前对话，**左键开关、右键呼出菜单**选择关闭或切换人物卡；设置页还提供「全部关闭」。人设只注入主对话，子 Agent 不受影响。开关带「开 / 关」文字，说明性提示收进圆圈问号图标，鼠标悬停或聚焦时显示。
 
 ## 安装
 
@@ -24,7 +25,7 @@ English: a local-first DSH plugin that keeps a character card in the system prom
 1. 克隆或下载本仓库到本地任意目录：
 
    ```bash
-   git clone https://github.com/IFLICC/dsh-persona-memory.git
+   git clone https://github.com/ifenc/dsh-persona-memory.git
    ```
 
 2. 在 DSH 的插件管理里安装这个本地 bundle（选择 `dsh-persona-memory` 目录）。

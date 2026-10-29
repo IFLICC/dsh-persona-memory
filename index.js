@@ -226,7 +226,7 @@ export function apply(ctx) {
         `本对话人设：${sessionEnabled ? '已开启' : '已关闭'}`,
         `已开启人设的对话：${state.settings.personaSessions.length} 个`,
         card ? `当前人物卡：${card.name}${card.title ? ` · ${card.title}` : ''}（${card.id}）` : '当前没有人物卡',
-        `记忆 ${state.stats.active} 条（${state.stats.due} 条待复习，${state.stats.forgotten} 条已遗忘）｜日记 ${state.stats.diaries} 篇`,
+        `记忆 ${state.stats.active} 条（${state.stats.due} 条待复习，${state.stats.forgotten} 条已遗忘）｜日记 ${state.stats.diaries} 篇｜资料库 ${state.stats.library} 条`,
       ]
       if (card?.description) lines.push(`人格：${truncate(card.description, 220)}`)
       if (card?.style) lines.push(`风格：${truncate(card.style, 160)}`)
@@ -425,7 +425,112 @@ export function apply(ctx) {
     },
   }
 
-  for (const tool of [personaTool, memoryTool, diaryTool]) {
+  const libraryTool = {
+    name: 'persona_library',
+    description:
+      "Search, read and maintain the current character's reference library: memes, knowledge notes, and web references. Search before answering when a topic may be covered; after learning something new from the web or conversation, add a concise entry (with url when available).",
+    parameters: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['search', 'get', 'add', 'update', 'delete', 'list'],
+          description: 'Operation to perform.',
+        },
+        query: { type: 'string', description: 'Search text for search/list.' },
+        id: { type: 'string', description: 'Entry id for get/update/delete.' },
+        title: { type: 'string', description: 'Short entry title.' },
+        content: { type: 'string', description: 'Knowledge, meme explanation, or reference notes.' },
+        kind: { type: 'string', enum: ['meme', 'knowledge', 'reference', 'note'], description: 'Entry kind.' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Topic tags.' },
+        url: { type: 'string', description: 'Source URL when learned from the web.' },
+        limit: { type: 'integer', minimum: 1, maximum: 50, description: 'Maximum entries to return.' },
+      },
+      required: ['action'],
+      additionalProperties: false,
+    },
+    output: {
+      schema: { type: 'object' },
+      render: (_args, value) => [{ type: 'text', text: typeof value?.summary === 'string' ? value.summary : 'library operation finished' }],
+    },
+    async execute(args = {}) {
+      const action = String(args.action ?? 'search')
+      const limit = Math.min(50, Number(args.limit) || 8)
+      if (action === 'search' || action === 'list') {
+        const entries = store.listLibrary({
+          query: String(args.query ?? ''),
+          kind: String(args.kind ?? ''),
+          limit,
+        })
+        return {
+          summary: entries.length
+            ? entries
+                .map((entry) => {
+                  const tags = entry.tags.length ? ` #${entry.tags.join(' #')}` : ''
+                  const url = entry.url ? ` · ${entry.url}` : ''
+                  return `- [${entry.kind}] ${entry.title}${tags}${url}\n  ${truncate(entry.content, 180)}`
+                })
+                .join('\n')
+            : '资料库里没有匹配的内容。',
+          entries: entries.map((entry) => ({
+            id: entry.id,
+            title: entry.title,
+            kind: entry.kind,
+            tags: [...entry.tags],
+            url: entry.url,
+            preview: truncate(entry.content, 200),
+            updatedAt: entry.updatedAt,
+          })),
+          count: entries.length,
+        }
+      }
+      if (action === 'get') {
+        if (!args.id) throw new Error('id is required')
+        const entry = store.getLibrary(String(args.id))
+        if (!entry) throw new Error('资料不存在')
+        return {
+          summary: `[${entry.kind}] ${entry.title}\n${entry.content}${entry.url ? `\n${entry.url}` : ''}`,
+          entry: { ...entry, tags: [...entry.tags] },
+        }
+      }
+      if (action === 'add') {
+        if (!args.title && !args.content) throw new Error('title or content is required')
+        const result = store.addLibrary({
+          title: args.title,
+          content: args.content,
+          kind: args.kind,
+          tags: args.tags,
+          url: args.url,
+          source: args.url ? 'web' : 'model',
+        })
+        return {
+          summary: result.updated
+            ? `资料已更新：${result.entry.title}`
+            : `资料已存入：${result.entry.title}`,
+          entry: { ...result.entry, tags: [...result.entry.tags] },
+          updated: result.updated,
+        }
+      }
+      if (action === 'update') {
+        if (!args.id) throw new Error('id is required')
+        const patch = {}
+        for (const key of ['title', 'content', 'kind', 'tags', 'url']) {
+          if (args[key] !== undefined) patch[key] = args[key]
+        }
+        const entry = store.updateLibrary(String(args.id), patch)
+        if (!entry) throw new Error('资料不存在')
+        return { summary: `资料已更新：${entry.title}`, entry: { ...entry, tags: [...entry.tags] } }
+      }
+      if (action === 'delete') {
+        if (!args.id) throw new Error('id is required')
+        if (!store.deleteLibrary(String(args.id))) throw new Error('资料不存在')
+        return { summary: '资料已删除', deleted: true }
+      }
+      throw new Error(`unknown library action: ${action}`)
+    },
+  }
+
+  for (const tool of [personaTool, memoryTool, diaryTool, libraryTool]) {
     ctx.effect(() => ctx.tools.register(tool), `persona-memory: ${tool.name} tool`)
   }
 
@@ -590,6 +695,33 @@ function handleAction(store, route, body) {
       return store.clearCardMemories()
     }
     throw new Error(`unknown memory action: ${action}`)
+  }
+  if (route === `${API_BASE}/library`) {
+    const action = String(body.action ?? 'list')
+    if (action === 'add') {
+      const result = store.addLibrary({ ...body, source: 'manual' })
+      return { entry: result.entry, updated: result.updated }
+    }
+    if (action === 'update') {
+      const entry = store.updateLibrary(String(body.id ?? ''), body.patch ?? body)
+      if (!entry) throw new Error('资料不存在')
+      return { entry }
+    }
+    if (action === 'delete') {
+      if (!store.deleteLibrary(String(body.id ?? ''))) throw new Error('资料不存在')
+      return { deleted: true }
+    }
+    if (action === 'clear') return store.clearCardLibrary()
+    if (action === 'list') {
+      return {
+        entries: store.listLibrary({
+          query: String(body.query ?? ''),
+          kind: String(body.kind ?? ''),
+          limit: Number(body.limit) || 100,
+        }),
+      }
+    }
+    throw new Error(`unknown library action: ${action}`)
   }
   if (route === `${API_BASE}/diary`) {
     const action = String(body.action ?? 'list')

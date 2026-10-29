@@ -1,19 +1,19 @@
 {
   "name": "@local/dsh-persona-memory",
-  "version": "0.5.3",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "main": "./index.js",
   "license": "MIT",
-  "description": "Persona mode with character cards, Ebbinghaus-style long-term memory, and a diary.",
-  "author": "IFLICC",
+  "description": "Persona mode with character cards, Ebbinghaus-style long-term memory, a diary, and a per-character reference library.",
+  "author": "ifenc",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/IFLICC/dsh-persona-memory.git"
+    "url": "git+https://github.com/ifenc/dsh-persona-memory.git"
   },
-  "homepage": "https://github.com/IFLICC/dsh-persona-memory#readme",
+  "homepage": "https://github.com/ifenc/dsh-persona-memory#readme",
   "bugs": {
-    "url": "https://github.com/IFLICC/dsh-persona-memory/issues"
+    "url": "https://github.com/ifenc/dsh-persona-memory/issues"
   },
   "keywords": [
     "deepseek-harness",
@@ -22,7 +22,9 @@
     "persona",
     "memory",
     "ebbinghaus",
-    "diary"
+    "diary",
+    "library",
+    "knowledge-base"
   ],
   "engines": {
     "node": ">=22"

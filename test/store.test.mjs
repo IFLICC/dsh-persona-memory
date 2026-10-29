@@ -188,3 +188,97 @@ test('importing cards preserves their ids so memories can follow', () => {
     target.cleanup()
   }
 })
+
+test('library entries bind to the active card and update by title', () => {
+  const { store, cleanup } = openStore(legacyStore())
+  try {
+    const first = store.addLibrary({
+      title: '绷不住了',
+      content: '表达忍不住笑出来的网络用语',
+      kind: 'meme',
+      tags: ['梗', '网络'],
+      url: 'https://example.com/meme',
+      source: 'web',
+    })
+    assert.equal(first.updated, false)
+    assert.equal(store.publicState().stats.library, 1)
+
+    const again = store.addLibrary({
+      title: '绷不住了',
+      content: '更新后的解释',
+      kind: 'meme',
+      tags: ['梗'],
+    })
+    assert.equal(again.updated, true)
+    assert.equal(store.state.library.length, 1)
+    assert.equal(again.entry.content, '更新后的解释')
+
+    store.activateCard('card-b')
+    assert.equal(store.publicState().library.length, 0)
+    store.addLibrary({ title: 'B 的知识点', content: '只属于 B', kind: 'knowledge' })
+    assert.equal(store.publicState().library.length, 1)
+    assert.equal(store.listLibrary({ query: '绷不住了' }).length, 0)
+
+    store.activateCard('card-a')
+    assert.equal(store.publicState().library.length, 1)
+    assert.equal(store.listLibrary({ query: '绷不住' })[0].title, '绷不住了')
+    const prompt = buildPersonaPrompt(store, Date.now(), '')
+    assert.ok(prompt.includes('【资料库】'))
+    assert.ok(prompt.includes('绷不住了'))
+    assert.ok(!prompt.includes('B 的知识点'))
+  } finally {
+    cleanup()
+  }
+})
+
+test('library export/import copies into the active card with fresh ids', () => {
+  const { store, cleanup } = openStore(legacyStore())
+  try {
+    store.addLibrary({ title: 'A 的梗', content: 'A 的梗说明', kind: 'meme' })
+    const exported = store.exportData('library')
+    assert.equal(exported.data.cardId, 'card-a')
+    assert.equal(exported.data.entries.length, 1)
+
+    store.activateCard('card-b')
+    const result = store.importData('library', 'merge', exported)
+    assert.equal(result.library, 1)
+    const copied = store.publicState().library[0]
+    assert.equal(copied.title, 'A 的梗')
+    assert.notEqual(copied.id, exported.data.entries[0].id)
+
+    store.activateCard('card-a')
+    assert.equal(store.publicState().library.length, 1, 'source card keeps its entry')
+  } finally {
+    cleanup()
+  }
+})
+
+test('full backup and card deletion handle library entries', () => {
+  const source = openStore(legacyStore())
+  const target = openStore()
+  try {
+    source.store.addLibrary({ title: 'A 的梗', content: 'A', kind: 'meme' })
+    source.store.activateCard('card-b')
+    source.store.addLibrary({ title: 'B 的知识', content: 'B', kind: 'knowledge' })
+    const backup = source.store.exportData('all')
+    assert.equal(backup.data.library.length, 2)
+
+    target.store.importData('all', 'replace', backup)
+    const cardIds = new Set(target.store.state.cards.map((card) => card.id))
+    assert.ok(target.store.state.library.every((entry) => cardIds.has(entry.cardId)))
+
+    source.store.deleteCard('card-b')
+    assert.ok(!source.store.state.library.some((entry) => entry.cardId === 'card-b'))
+    assert.equal(source.store.state.library.length, 1)
+
+    target.store.activateCard('card-b')
+    const cleared = target.store.clearCardLibrary()
+    assert.equal(cleared.library, 1)
+    assert.equal(target.store.publicState().library.length, 0)
+    target.store.activateCard('card-a')
+    assert.equal(target.store.publicState().library.length, 1)
+  } finally {
+    source.cleanup()
+    target.cleanup()
+  }
+})

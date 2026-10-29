@@ -15,6 +15,7 @@ window.__ModuleLoader__.load({
         'tab.persona': '人设',
         'tab.memory': '记忆',
         'tab.diary': '日记',
+        'tab.library': '资料库',
         'tab.scope': '范围',
         'tab.options': '设置',
         'mode.on': '人设模式已开启',
@@ -77,6 +78,41 @@ window.__ModuleLoader__.load({
         'diary.deleteConfirm': '确定删除这篇日记吗？',
         'diary.cardHint': '日记也跟着人物卡走：当前显示的是「{name}」的日记，切换人物卡会切到对应的日记。',
         'diary.ioNote': '导入 / 导出只针对当前人物卡的日记。',
+        'lib.add': '新增一条资料',
+        'lib.edit': '编辑资料',
+        'lib.title': '标题',
+        'lib.titlePlaceholder': '例如：梗「绷不住了」/ 某个知识点',
+        'lib.kind': '类型',
+        'lib.kind.meme': '梗',
+        'lib.kind.knowledge': '知识',
+        'lib.kind.reference': '资料',
+        'lib.kind.note': '笔记',
+        'lib.content': '内容',
+        'lib.contentPlaceholder': '记录这个梗的用法、知识点的解释，或者从网上查到的资料…',
+        'lib.tags': '标签（逗号分隔）',
+        'lib.url': '来源链接',
+        'lib.urlPlaceholder': 'https://…',
+        'lib.search': '搜索资料',
+        'lib.empty': '资料库还是空的。聊天里遇到的梗、知识，或上网查到的资料，都可以记在这里。',
+        'lib.noneMatch': '没有匹配的资料。',
+        'lib.save': '保存修改',
+        'lib.addBtn': '存入资料库',
+        'lib.needContent': '标题或内容至少填一项。',
+        'lib.editBtn': '编辑',
+        'lib.deleteConfirm': '确定删除这条资料吗？',
+        'lib.clear': '清空此卡资料',
+        'lib.clearConfirm': '确定清空当前人物卡的全部资料吗？此操作不可撤销。',
+        'lib.cardHint': '资料库跟着人物卡走：当前显示的是「{name}」的资料库，切换人物卡会切换到对应的资料。',
+        'lib.ioNote': '导入 / 导出只针对当前人物卡的资料库。',
+        'lib.source.manual': '手动',
+        'lib.source.model': '模型',
+        'lib.source.web': '网页',
+        'lib.source.import': '导入',
+        'lib.updated': '更新于 {time}',
+        'notice.libSaved': '资料已存入。',
+        'notice.libUpdated': '资料已更新。',
+        'notice.libDeleted': '资料已删除。',
+        'notice.libCleared': '已清空当前人物卡的资料库。',
         'opt.topK': '每次注入的记忆条数',
         'opt.title': '参数',
         'opt.topKHint': '越少越省 token，越多越容易想起旧事。',
@@ -176,6 +212,7 @@ window.__ModuleLoader__.load({
         'tab.persona': 'Persona',
         'tab.memory': 'Memory',
         'tab.diary': 'Diary',
+        'tab.library': 'Library',
         'tab.scope': 'Scope',
         'tab.options': 'Options',
         'mode.on': 'Persona mode is on',
@@ -238,6 +275,41 @@ window.__ModuleLoader__.load({
         'diary.deleteConfirm': 'Delete this diary entry?',
         'diary.cardHint': 'Diaries belong to the character too: these are {name}\'s diaries, and switching characters switches them.',
         'diary.ioNote': 'Import/export covers only the current character\'s diaries.',
+        'lib.add': 'Add an entry',
+        'lib.edit': 'Edit entry',
+        'lib.title': 'Title',
+        'lib.titlePlaceholder': 'e.g. the meme "I can\'t even" / a knowledge note',
+        'lib.kind': 'Kind',
+        'lib.kind.meme': 'Meme',
+        'lib.kind.knowledge': 'Knowledge',
+        'lib.kind.reference': 'Reference',
+        'lib.kind.note': 'Note',
+        'lib.content': 'Content',
+        'lib.contentPlaceholder': 'How the meme is used, an explanation, or what you found on the web…',
+        'lib.tags': 'Tags (comma separated)',
+        'lib.url': 'Source URL',
+        'lib.urlPlaceholder': 'https://…',
+        'lib.search': 'Search library',
+        'lib.empty': 'The library is empty. Save memes, knowledge, or web references here as you chat.',
+        'lib.noneMatch': 'No matching entries.',
+        'lib.save': 'Save changes',
+        'lib.addBtn': 'Save to library',
+        'lib.needContent': 'A title or some content is required.',
+        'lib.editBtn': 'Edit',
+        'lib.deleteConfirm': 'Delete this entry?',
+        'lib.clear': 'Clear this card\'s library',
+        'lib.clearConfirm': 'Clear every entry in this character\'s library? This cannot be undone.',
+        'lib.cardHint': 'The library belongs to the character: these are {name}\'s entries, and switching characters switches them.',
+        'lib.ioNote': 'Import/export covers only the current character\'s library.',
+        'lib.source.manual': 'Manual',
+        'lib.source.model': 'Model',
+        'lib.source.web': 'Web',
+        'lib.source.import': 'Imported',
+        'lib.updated': 'Updated {time}',
+        'notice.libSaved': 'Entry saved.',
+        'notice.libUpdated': 'Entry updated.',
+        'notice.libDeleted': 'Entry deleted.',
+        'notice.libCleared': 'This character\'s library is now empty.',
         'opt.topK': 'Memories injected per step',
         'opt.title': 'Options',
         'opt.topKHint': 'Fewer saves tokens; more makes old memories easier to recall.',
@@ -777,6 +849,7 @@ window.__ModuleLoader__.load({
       const tabs = [
         ['persona', 'tab.persona'],
         ['memory', 'tab.memory'],
+        ['library', 'tab.library'],
         ['diary', 'tab.diary'],
         ['options', 'tab.options'],
       ]
@@ -847,6 +920,9 @@ window.__ModuleLoader__.load({
           : null,
         tab === 'memory'
           ? h(MemoryTab, { t, state, run, busy })
+          : null,
+        tab === 'library'
+          ? h(LibraryTab, { t, state, run, busy })
           : null,
         tab === 'diary'
           ? h(DiaryTab, { t, state, run, busy })
@@ -1240,6 +1316,240 @@ window.__ModuleLoader__.load({
             t('mem.forget'),
           ),
         ),
+      )
+    }
+
+    function LibraryItem(props) {
+      const { t, entry, busy, onEdit, onDelete } = props
+      const kindLabel = t('lib.kind.' + entry.kind)
+      return h(
+        'article',
+        { className: 'dspm-lib' },
+        h(
+          'div',
+          { className: 'dspm-lib-head' },
+          h('span', { className: 'dspm-badge' }, kindLabel),
+          h('div', { className: 'dspm-lib-title' }, entry.title),
+          h(
+            'div',
+            { className: 'dspm-actions' },
+            h(Btn, { onClick: () => onEdit(entry), disabled: busy }, t('lib.editBtn')),
+            h(Btn, { variant: 'danger', onClick: () => onDelete(entry), disabled: busy }, t('btn.delete')),
+          ),
+        ),
+        entry.content ? h('p', { className: 'dspm-lib-body' }, entry.content) : null,
+        h(
+          'div',
+          { className: 'dspm-mem-meta' },
+          entry.tags.map((tag) => h('span', { key: tag, className: 'dspm-tag' }, '#' + tag)),
+          entry.url
+            ? h(
+                'a',
+                {
+                  className: 'dspm-lib-link',
+                  href: entry.url,
+                  target: '_blank',
+                  rel: 'noreferrer',
+                },
+                entry.url,
+              )
+            : null,
+          h('span', null, t('lib.source.' + (entry.source || 'manual'))),
+          h('span', null, t('lib.updated', { time: formatDateTime(entry.updatedAt) })),
+        ),
+      )
+    }
+
+    function LibraryTab(props) {
+      const { t, state, run, busy } = props
+      const [editingId, setEditingId] = useState('')
+      const [title, setTitle] = useState('')
+      const [content, setContent] = useState('')
+      const [kind, setKind] = useState('knowledge')
+      const [tags, setTags] = useState('')
+      const [url, setUrl] = useState('')
+      const [query, setQuery] = useState('')
+      const cardName = (state.activeCard && state.activeCard.name) || ''
+
+      const resetForm = () => {
+        setEditingId('')
+        setTitle('')
+        setContent('')
+        setKind('knowledge')
+        setTags('')
+        setUrl('')
+      }
+
+      useEffect(() => {
+        resetForm()
+        setQuery('')
+      }, [state.activeCardId])
+
+      const entries = Array.isArray(state.library) ? state.library : []
+      const needle = query.trim().toLowerCase()
+      const filtered = entries.filter((entry) => {
+        if (!needle) return true
+        return `${entry.title} ${entry.content} ${entry.tags.join(' ')}`.toLowerCase().includes(needle)
+      })
+
+      const submit = () =>
+        run(async () => {
+          if (!title.trim() && !content.trim()) throw new Error(t('lib.needContent'))
+          const payload = { title, content, kind, tags, url }
+          if (editingId) {
+            await store.mutate('/library', { action: 'update', id: editingId, ...payload })
+          } else {
+            await store.mutate('/library', { action: 'add', ...payload })
+          }
+          resetForm()
+        }, editingId ? t('notice.libUpdated') : t('notice.libSaved'))
+
+      const editEntry = (entry) => {
+        setEditingId(entry.id)
+        setTitle(entry.title)
+        setContent(entry.content)
+        setKind(entry.kind)
+        setTags(entry.tags.join(', '))
+        setUrl(entry.url || '')
+      }
+
+      const removeEntry = (entry) => {
+        if (!window.confirm(t('lib.deleteConfirm'))) return
+        run(() => store.mutate('/library', { action: 'delete', id: entry.id }), t('notice.libDeleted'))
+      }
+
+      const clearAll = () => {
+        if (!window.confirm(t('lib.clearConfirm'))) return
+        run(() => store.mutate('/library', { action: 'clear' }), t('notice.libCleared'))
+      }
+
+      return h(
+        'div',
+        { className: 'dspm-stack' },
+        h(
+          'div',
+          { className: 'dspm-card' },
+          h(
+            'div',
+            { className: 'dspm-card-title' },
+            editingId ? t('lib.edit') : t('lib.add'),
+            h('span', { className: 'dspm-badge' }, entries.length),
+            h(InfoHint, { text: t('lib.cardHint', { name: cardName }) }),
+          ),
+          h(
+            'div',
+            { className: 'dspm-grid-2' },
+            h(
+              Field,
+              { label: t('lib.title') },
+              h('input', {
+                className: 'dspm-input',
+                placeholder: t('lib.titlePlaceholder'),
+                value: title,
+                maxLength: 160,
+                onChange: (event) => setTitle(event.target.value),
+              }),
+            ),
+            h(
+              Field,
+              { label: t('lib.kind') },
+              h(
+                'select',
+                {
+                  className: 'dspm-select',
+                  value: kind,
+                  onChange: (event) => setKind(event.target.value),
+                },
+                ['meme', 'knowledge', 'reference', 'note'].map((value) =>
+                  h('option', { key: value, value }, t('lib.kind.' + value)),
+                ),
+              ),
+            ),
+          ),
+          h(
+            'div',
+            { className: 'dspm-grid-2' },
+            h(
+              Field,
+              { label: t('lib.tags') },
+              h('input', {
+                className: 'dspm-input',
+                value: tags,
+                placeholder: '梗, 网络',
+                onChange: (event) => setTags(event.target.value),
+              }),
+            ),
+            h(
+              Field,
+              { label: t('lib.url') },
+              h('input', {
+                className: 'dspm-input',
+                value: url,
+                placeholder: t('lib.urlPlaceholder'),
+                onChange: (event) => setUrl(event.target.value),
+              }),
+            ),
+          ),
+          h(
+            Field,
+            { label: t('lib.content') },
+            h(AutoTextarea, {
+              className: 'dspm-textarea',
+              rows: 5,
+              maxHeight: 320,
+              placeholder: t('lib.contentPlaceholder'),
+              value: content,
+              onChange: (event) => setContent(event.target.value),
+            }),
+          ),
+          h(
+            'div',
+            { className: 'dspm-actions' },
+            h(
+              Btn,
+              { variant: 'primary', onClick: submit, disabled: busy },
+              editingId ? t('lib.save') : t('lib.addBtn'),
+            ),
+            editingId ? h(Btn, { onClick: resetForm, disabled: busy }, t('btn.cancel')) : null,
+          ),
+        ),
+        h(
+          'div',
+          { className: 'dspm-toolbar' },
+          h('input', {
+            className: 'dspm-input dspm-search',
+            placeholder: t('lib.search'),
+            value: query,
+            onChange: (event) => setQuery(event.target.value),
+          }),
+          h(
+            'div',
+            { className: 'dspm-actions' },
+            h(InfoHint, { text: t('lib.ioNote'), align: 'right' }),
+            h(DataIO, { t, kind: 'library', run, busy }),
+            h(
+              Btn,
+              { variant: 'danger', onClick: clearAll, disabled: busy || entries.length === 0 },
+              t('lib.clear'),
+            ),
+          ),
+        ),
+        filtered.length
+          ? h(
+              'div',
+              { className: 'dspm-list' },
+              filtered.map((entry) =>
+                h(LibraryItem, {
+                  key: entry.id,
+                  t,
+                  entry,
+                  busy,
+                  onEdit: editEntry,
+                  onDelete: removeEntry,
+                }),
+              ),
+            )
+          : h(Empty, null, needle ? t('lib.noneMatch') : t('lib.empty')),
       )
     }
 
@@ -1696,6 +2006,12 @@ window.__ModuleLoader__.load({
 .dspm-diary-title { font-weight: 600; flex: 1; min-width: 120px; }
 .dspm-diary-body { margin: 0; white-space: pre-wrap; word-break: break-word; }
 .dspm-diary-delete { padding: 2px 10px; font-size: 12px; }
+.dspm-lib { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; background: var(--dsw-alias-bg-layer-1); }
+.dspm-lib-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dspm-lib-title { flex: 1; min-width: 120px; font-weight: 600; word-break: break-word; }
+.dspm-lib-body { margin: 0; max-height: 200px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
+.dspm-lib-link { color: var(--dsw-alias-state-business-primary, #4176e6); font-size: 11px; text-decoration: none; word-break: break-all; }
+.dspm-lib-link:hover { text-decoration: underline; }
 .dspm-foot { margin: 0; color: var(--dsw-alias-label-secondary); font-size: 11px; word-break: break-all; }
 .dspm-chip { display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 999px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-secondary); font: inherit; font-size: 11px; cursor: pointer; }
 .dspm-chip.is-on { color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-border-l2); }
