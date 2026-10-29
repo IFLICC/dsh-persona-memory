@@ -113,6 +113,17 @@ window.__ModuleLoader__.load({
         'notice.libUpdated': '资料已更新。',
         'notice.libDeleted': '资料已删除。',
         'notice.libCleared': '已清空当前人物卡的资料库。',
+        'update.title': '版本与更新',
+        'update.hint': '从 GitHub 的 main 分支读取 package.json 的 version 做比较；只检查，不会自动安装。',
+        'update.current': '当前版本 v{version}',
+        'update.check': '检查更新',
+        'update.checking': '检查中…',
+        'update.idle': '检查 GitHub 上是否有新版本。',
+        'update.available': '发现新版本 v{version}',
+        'update.upToDate': '已是最新版本',
+        'update.failed': '检查失败',
+        'update.repo': '打开仓库',
+        'update.howto': '更新方式：在插件页重新安装这个 GitHub 仓库，或对本地目录 git pull 后重新加载/重启 DSH。',
         'opt.topK': '每次注入的记忆条数',
         'opt.title': '参数',
         'opt.topKHint': '越少越省 token，越多越容易想起旧事。',
@@ -310,6 +321,17 @@ window.__ModuleLoader__.load({
         'notice.libUpdated': 'Entry updated.',
         'notice.libDeleted': 'Entry deleted.',
         'notice.libCleared': 'This character\'s library is now empty.',
+        'update.title': 'Version & updates',
+        'update.hint': 'Compares the local version with package.json on GitHub main; it only checks, never installs.',
+        'update.current': 'Current version v{version}',
+        'update.check': 'Check for updates',
+        'update.checking': 'Checking…',
+        'update.idle': 'Check GitHub for a newer version.',
+        'update.available': 'New version available: v{version}',
+        'update.upToDate': 'Up to date',
+        'update.failed': 'Check failed',
+        'update.repo': 'Open repository',
+        'update.howto': 'To update: reinstall this GitHub repository from the Plugins page, or git pull the local folder and reload/restart DSH.',
         'opt.topK': 'Memories injected per step',
         'opt.title': 'Options',
         'opt.topKHint': 'Fewer saves tokens; more makes old memories easier to recall.',
@@ -1702,12 +1724,50 @@ window.__ModuleLoader__.load({
       const [topK, setTopK] = useState(state.settings.promptTopK)
       const [threshold, setThreshold] = useState(Math.round(state.settings.forgetThreshold * 100))
       const [max, setMax] = useState(state.settings.maxMemories)
+      const [update, setUpdate] = useState({ status: 'idle', data: null, error: '' })
 
       useEffect(() => {
         setTopK(state.settings.promptTopK)
         setThreshold(Math.round(state.settings.forgetThreshold * 100))
         setMax(state.settings.maxMemories)
       }, [state.settings.promptTopK, state.settings.forgetThreshold, state.settings.maxMemories])
+
+      const checkUpdate = async () => {
+        setUpdate({ status: 'checking', data: null, error: '' })
+        try {
+          const response = await fetch(`${API}/update-check`, {
+            cache: 'no-store',
+            headers: { 'x-dsh-persona-memory': '1' },
+          })
+          const data = await response.json().catch(() => null)
+          if (!response.ok || !data || data.ok === false) {
+            setUpdate({
+              status: 'error',
+              data: null,
+              error: (data && data.error) || `HTTP ${response.status}`,
+            })
+          } else {
+            setUpdate({ status: 'done', data, error: '' })
+          }
+        } catch (error) {
+          setUpdate({
+            status: 'error',
+            data: null,
+            error: (error && error.message) || String(error),
+          })
+        }
+      }
+
+      const updateStatus =
+        update.status === 'checking'
+          ? t('update.checking')
+          : update.status === 'error'
+            ? t('update.failed') + '：' + update.error
+            : update.status === 'done'
+              ? update.data.updateAvailable
+                ? t('update.available', { version: update.data.latest })
+                : t('update.upToDate')
+              : t('update.idle')
 
       const save = () =>
         run(
@@ -1786,6 +1846,52 @@ window.__ModuleLoader__.load({
             h(InfoHint, { text: t('io.hint') }),
           ),
           h(DataIO, { t, kind: 'all', run, busy }),
+        ),
+        h(
+          'div',
+          { className: 'dspm-card' },
+          h(
+            'div',
+            { className: 'dspm-card-title' },
+            t('update.title'),
+            h(InfoHint, { text: t('update.hint') }),
+          ),
+          h(
+            'div',
+            { className: 'dspm-row' },
+            h(
+              'div',
+              { className: 'dspm-update-text' },
+              h('div', { className: 'dspm-row-title' }, t('update.current', { version: state.version || '?' })),
+              h(
+                'div',
+                { className: 'dspm-update-status' + (update.status === 'error' ? ' is-error' : '') },
+                updateStatus,
+              ),
+            ),
+            h(
+              Btn,
+              { onClick: checkUpdate, disabled: update.status === 'checking' },
+              update.status === 'checking' ? t('update.checking') : t('update.check'),
+            ),
+          ),
+          update.status === 'done' && update.data.updateAvailable
+            ? h(
+                'div',
+                { className: 'dspm-actions' },
+                h(
+                  'a',
+                  {
+                    className: 'dspm-lib-link',
+                    href: update.data.repo,
+                    target: '_blank',
+                    rel: 'noreferrer',
+                  },
+                  t('update.repo'),
+                ),
+                h(InfoHint, { text: t('update.howto') }),
+              )
+            : null,
         ),
         h('p', { className: 'dspm-foot' }, t('opt.storage') + '：' + state.dataFile),
       )
@@ -2000,6 +2106,9 @@ window.__ModuleLoader__.load({
 .dspm-archived { display: flex; flex-direction: column; gap: 10px; }
 .dspm-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
 .dspm-row-title { font-weight: 500; }
+.dspm-update-text { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dspm-update-status { color: var(--dsw-alias-label-secondary); font-size: 11px; word-break: break-word; }
+.dspm-update-status.is-error { color: var(--dsw-alias-state-error-primary); }
 .dspm-diary { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; background: var(--dsw-alias-bg-layer-1); }
 .dspm-diary-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .dspm-diary-date { color: var(--dsw-alias-label-secondary); font-size: 11px; font-variant-numeric: tabular-nums; }

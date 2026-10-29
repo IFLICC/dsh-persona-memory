@@ -17,6 +17,7 @@ English: a local-first DSH plugin that keeps a character card in the system prom
 - **工具**：`persona`、`persona_memory`、`persona_diary`、`persona_library`，可以直接用自然语言让人设调整、记忆增删、写日记、查/记资料；这些工具都作用于当前人物卡。
 - **导入导出**：人物卡、记忆、日记、资料库都可以单独导出为 JSON，也可以一键备份/恢复全部数据；导入时可以选择合并（去重）或覆盖。
 - **界面**：设置 →「人格记忆」里有卡片编辑、记忆列表（含清晰度条）、资料库、日记本和参数设置；输入框下方（新对话在新会话行）的开关只作用于当前对话，**左键开关、右键呼出菜单**选择关闭或切换人物卡；设置页还提供「全部关闭」。人设只注入主对话，子 Agent 不受影响。开关带「开 / 关」文字，说明性提示收进圆圈问号图标，鼠标悬停或聚焦时显示。
+- **检查更新**：设置 → 参数 里有「检查更新」，读取 GitHub `main` 分支 `package.json` 的 `version` 和本地版本比较；只提示，不会自动安装。更新时在插件页重新安装该 GitHub 仓库，或对本地目录 `git pull` 后重新加载/重启 DSH。
 
 ## 安装
 
@@ -53,8 +54,8 @@ English: a local-first DSH plugin that keeps a character card in the system prom
 ## 数据与隐私
 
 - 数据默认保存在 `DSH_HOME/persona-memory/store.json`，可以用环境变量 `DSH_PERSONA_MEMORY_DIR` 覆盖目录。
-- 所有数据都在本机，插件不发起任何网络请求。
-- 人设、记忆和日记会进入发给模型的提示词；请不要把不希望发送给模型的内容写进人物卡或记忆。
+- 所有数据都在本机。除「检查更新」会向 GitHub 读取 `package.json`（只带 User-Agent，不上传任何本地数据）外，插件不发起网络请求。
+- 人设、记忆、日记和资料库会进入发给模型的提示词；请不要把不希望发送给模型的内容写进人物卡或资料库。
 
 ## 兼容性
 

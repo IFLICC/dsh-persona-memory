@@ -5,10 +5,22 @@
  * Ebbinghaus-style forgetting curve, and can keep a diary. The Web settings page
  * talks to this file over the routes below.
  */
+import { readFileSync } from 'node:fs'
 import { PersonaStore, buildPersonaPrompt, buildPersonaOffReminder } from './lib/store.js'
+import { compareSemver } from './lib/version.js'
 
 const API_BASE = '/api/dsh-persona-memory'
 const MAX_BODY_BYTES = 8 * 1024 * 1024
+const REPO_URL = 'https://github.com/ifenc/dsh-persona-memory'
+const RAW_PACKAGE_URL = 'https://raw.githubusercontent.com/ifenc/dsh-persona-memory/main/package.json'
+
+let PLUGIN_VERSION = '0.0.0'
+try {
+  const pkg = JSON.parse(readFileSync(new URL('./package.json', import.meta.url), 'utf8'))
+  if (typeof pkg.version === 'string' && pkg.version.trim()) PLUGIN_VERSION = pkg.version.trim()
+} catch {
+  /* keep the fallback version */
+}
 
 export const inject = ['tools', 'systemPrompt', 'webServer', 'agents', 'sessions', 'workingDirectory']
 
@@ -68,6 +80,46 @@ function sendJson(res, status, payload) {
     'content-length': Buffer.byteLength(body),
   })
   res.end(body)
+}
+
+let updateCheckCache = { at: 0, value: null }
+
+async function checkForUpdate() {
+  const now = Date.now()
+  if (updateCheckCache.value && now - updateCheckCache.at < 5 * 60 * 1000) {
+    return { ...updateCheckCache.value, cached: true }
+  }
+  let latest = ''
+  try {
+    const response = await fetch(RAW_PACKAGE_URL, {
+      headers: { 'user-agent': `dsh-persona-memory/${PLUGIN_VERSION}` },
+      signal: AbortSignal.timeout(8000),
+      cache: 'no-store',
+    })
+    if (!response.ok) throw new Error(`GitHub 返回 HTTP ${response.status}`)
+    const pkg = await response.json()
+    latest = typeof pkg.version === 'string' ? pkg.version.trim() : ''
+    if (!latest) throw new Error('远端 package.json 没有 version')
+  } catch (error) {
+    const cause = error && error.cause && error.cause.message ? `（${error.cause.message}）` : ''
+    return {
+      ok: false,
+      current: PLUGIN_VERSION,
+      repo: REPO_URL,
+      error: `${error instanceof Error ? error.message : String(error)}${cause}`,
+    }
+  }
+  const value = {
+    ok: true,
+    current: PLUGIN_VERSION,
+    latest,
+    updateAvailable: compareSemver(latest, PLUGIN_VERSION) > 0,
+    repo: REPO_URL,
+    releases: `${REPO_URL}/releases`,
+    checkedAt: Date.now(),
+  }
+  updateCheckCache = { at: value.checkedAt, value }
+  return value
 }
 
 function memoryView(store, memory, now) {
@@ -589,6 +641,8 @@ export function apply(ctx) {
   /* Web API for the settings page                                     */
   /* ---------------------------------------------------------------- */
 
+  const buildState = () => ({ ...store.publicState(), version: PLUGIN_VERSION })
+
   ctx.effect(
     () =>
       ctx.webServer.register({
@@ -599,7 +653,11 @@ export function apply(ctx) {
             const url = new URL(req.url ?? '/', 'http://localhost')
             const route = url.pathname.replace(/\/+$/, '')
             if (req.method === 'GET' && (route === `${API_BASE}/state` || route === API_BASE)) {
-              sendJson(res, 200, store.publicState())
+              sendJson(res, 200, buildState())
+              return
+            }
+            if (req.method === 'GET' && route === `${API_BASE}/update-check`) {
+              sendJson(res, 200, await checkForUpdate())
               return
             }
             if (req.method === 'GET' && route === `${API_BASE}/export`) {
@@ -612,7 +670,7 @@ export function apply(ctx) {
             }
             const body = await readBody(req)
             const result = handleAction(store, route, body)
-            sendJson(res, 200, { ok: true, ...result, state: store.publicState() })
+            sendJson(res, 200, { ok: true, ...result, state: buildState() })
           } catch (error) {
             sendJson(res, 400, { ok: false, error: error instanceof Error ? error.message : String(error) })
           }
