@@ -34,6 +34,7 @@ window.__ModuleLoader__.load({
         'card.rules': '行为准则（每行一条）',
         'card.greeting': '开场白',
         'card.new': '新建人物卡',
+        'card.defaultName': '新人物卡',
         'card.copy': '复制当前卡',
         'card.delete': '删除',
         'card.deleteConfirm': '确定删除这张人物卡吗？它的全部记忆、日记和资料库也会一起删除。',
@@ -258,6 +259,7 @@ window.__ModuleLoader__.load({
         'card.rules': 'Rules (one per line)',
         'card.greeting': 'Opening line',
         'card.new': 'New character',
+        'card.defaultName': 'New character',
         'card.copy': 'Duplicate',
         'card.delete': 'Delete',
         'card.deleteConfirm': 'Delete this character card? All of its memories, diaries, and library entries will be deleted too.',
@@ -1046,13 +1048,7 @@ window.__ModuleLoader__.load({
         run(async () => {
           const data = await store.mutate('/card', {
             action: 'create',
-            card: {
-              name: draft.name ? draft.name + ' (2)' : t('card.new'),
-              title: draft.title,
-              greeting: draft.greeting,
-              sections,
-              traits,
-            },
+            card: { name: t('card.defaultName') },
           })
           await store.mutate('/card', { action: 'activate', id: data.card.id })
         }, t('notice.cardSaved'))

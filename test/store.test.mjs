@@ -354,3 +354,27 @@ test('custom sections and trait weights drive the prompt', () => {
     cleanup()
   }
 })
+
+test('creating a card uses the default template instead of the active card', () => {
+  const { store, cleanup } = openStore(legacyStore())
+  try {
+    store.activateCard('card-a')
+    store.saveCard({
+      id: 'card-a',
+      sections: [{ label: '口癖', content: '只属于 A 的设定' }],
+      traits: { humanize: 90, memes: 10 },
+    })
+
+    const created = store.createCard({ name: '新人物卡' })
+    assert.equal(created.name, '新人物卡')
+    assert.deepEqual(
+      created.sections.map((section) => section.label),
+      ['人格描述', '说话风格', '准则 1', '准则 2', '准则 3'],
+    )
+    assert.equal(created.traits.humanize, 50)
+    assert.equal(created.traits.memes, 50)
+    assert.ok(!created.sections.some((section) => section.label === '口癖'))
+  } finally {
+    cleanup()
+  }
+})
