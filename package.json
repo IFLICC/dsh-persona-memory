@@ -1,11 +1,11 @@
 {
   "name": "@local/dsh-persona-memory",
-  "version": "0.6.1",
+  "version": "0.7.0",
   "private": true,
   "type": "module",
   "main": "./index.js",
   "license": "MIT",
-  "description": "Persona mode with character cards, Ebbinghaus-style long-term memory, a diary, and a per-character reference library.",
+  "description": "Persona mode with configurable character cards and behavior weights, Ebbinghaus-style memory, diaries, and a reference library.",
   "author": "ifenc",
   "repository": {
     "type": "git",

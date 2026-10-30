@@ -282,3 +282,75 @@ test('full backup and card deletion handle library entries', () => {
     target.cleanup()
   }
 })
+
+test('legacy card fields migrate to sections and traits', () => {
+  const seed = legacyStore()
+  seed.cards[0] = {
+    id: 'card-a',
+    name: 'A',
+    title: '',
+    description: '描述内容',
+    style: '风格内容',
+    rules: ['规则一', '规则二'],
+    greeting: '',
+  }
+  const { store, cleanup } = openStore(seed)
+  try {
+    const card = store.state.cards.find((entry) => entry.id === 'card-a')
+    assert.deepEqual(
+      card.sections.map((section) => section.label),
+      ['人格描述', '说话风格', '准则 1', '准则 2'],
+    )
+    assert.equal(card.sections[0].content, '描述内容')
+    assert.equal(card.traits.humanize, 50)
+
+    const prompt = buildPersonaPrompt(store, Date.now(), '')
+    assert.ok(prompt.includes('【人格描述】描述内容'))
+    assert.ok(prompt.includes('【准则 1】规则一'))
+    assert.ok(prompt.includes('拟人度 50'))
+  } finally {
+    cleanup()
+  }
+})
+
+test('custom sections and trait weights drive the prompt', () => {
+  const { store, cleanup } = openStore(legacyStore())
+  try {
+    store.activateCard('card-a')
+    store.saveCard({
+      id: 'card-a',
+      sections: [
+        { label: '口癖', content: '喜欢说“欸嘿”' },
+        { label: '禁忌', content: '不要讨论政治' },
+      ],
+      traits: { humanize: 90, memes: 10, emotion: 70, actions: 30, initiative: 80, teasing: 20 },
+    })
+    const card = store.state.cards.find((entry) => entry.id === 'card-a')
+    assert.deepEqual(card.sections.map((section) => section.label), ['口癖', '禁忌'])
+    assert.equal(card.traits.humanize, 90)
+
+    const prompt = buildPersonaPrompt(store, Date.now(), '')
+    assert.ok(prompt.includes('【口癖】喜欢说“欸嘿”'))
+    assert.ok(prompt.includes('【禁忌】不要讨论政治'))
+    assert.ok(prompt.includes('拟人度 90'))
+    assert.ok(prompt.includes('强烈拟人'))
+    assert.ok(prompt.includes('玩梗 10'))
+    assert.ok(prompt.includes('几乎不用网络梗'))
+
+    const exported = store.exportData('cards')
+    assert.equal(exported.data.cards[0].sections.length, 2)
+    assert.equal(exported.data.cards[0].traits.humanize, 90)
+
+    const target = openStore()
+    try {
+      target.store.importData('cards', 'replace', exported)
+      const imported = target.store.state.cards[0]
+      assert.deepEqual(imported.sections.map((section) => section.label), ['口癖', '禁忌'])
+      assert.equal(imported.traits.humanize, 90)
+    } finally {
+      target.cleanup()
+    }
+  } finally {
+    cleanup()
+  }
+})

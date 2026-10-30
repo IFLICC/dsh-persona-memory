@@ -13,6 +13,14 @@ const API_BASE = '/api/dsh-persona-memory'
 const MAX_BODY_BYTES = 8 * 1024 * 1024
 const REPO_URL = 'https://github.com/ifenc/dsh-persona-memory'
 const RAW_PACKAGE_URL = 'https://raw.githubusercontent.com/ifenc/dsh-persona-memory/main/package.json'
+const TRAIT_LABELS = {
+  humanize: '拟人度',
+  memes: '玩梗',
+  emotion: '情绪',
+  actions: '动作描写',
+  initiative: '主动性',
+  teasing: '吐槽',
+}
 
 let PLUGIN_VERSION = '0.0.0'
 try {
@@ -93,7 +101,7 @@ async function checkForUpdate() {
   try {
     const response = await fetch(RAW_PACKAGE_URL, {
       headers: { 'user-agent': `dsh-persona-memory/${PLUGIN_VERSION}` },
-      signal: AbortSignal.timeout(8000),
+      signal: AbortSignal.timeout(15000),
       cache: 'no-store',
     })
     if (!response.ok) throw new Error(`GitHub 返回 HTTP ${response.status}`)
@@ -227,9 +235,37 @@ export function apply(ctx) {
         card_id: { type: 'string', description: 'Character card id for card_activate/card_delete.' },
         name: { type: 'string', description: 'Character name.' },
         title: { type: 'string', description: 'Short role or title, e.g. "你的长期记忆伙伴".' },
-        description: { type: 'string', description: 'Personality, background, and how the character relates to the user.' },
-        style: { type: 'string', description: 'Speaking style and tone.' },
-        rules: { type: 'array', items: { type: 'string' }, description: 'Behavioral rules, one line each.' },
+        description: { type: 'string', description: 'Legacy shorthand for the 人格描述 section.' },
+        style: { type: 'string', description: 'Legacy shorthand for the 说话风格 section.' },
+        rules: { type: 'array', items: { type: 'string' }, description: 'Legacy shorthand for 准则 sections.' },
+        sections: {
+          type: 'array',
+          description:
+            'Full character-card sections, in order. Custom labels are allowed (e.g. 口癖, 世界观, 禁忌). When provided, replaces description/style/rules.',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', description: 'Existing section id; omit for a new section.' },
+              label: { type: 'string', description: 'Section title shown in the prompt.' },
+              content: { type: 'string', description: 'Section body.' },
+            },
+            required: ['label', 'content'],
+            additionalProperties: false,
+          },
+        },
+        traits: {
+          type: 'object',
+          description: 'Behavior weights from 0 to 100.',
+          properties: {
+            humanize: { type: 'integer', minimum: 0, maximum: 100, description: '拟人程度' },
+            memes: { type: 'integer', minimum: 0, maximum: 100, description: '玩梗频率' },
+            emotion: { type: 'integer', minimum: 0, maximum: 100, description: '情绪强度' },
+            actions: { type: 'integer', minimum: 0, maximum: 100, description: '动作描写' },
+            initiative: { type: 'integer', minimum: 0, maximum: 100, description: '主动性' },
+            teasing: { type: 'integer', minimum: 0, maximum: 100, description: '吐槽/傲娇' },
+          },
+          additionalProperties: false,
+        },
         greeting: { type: 'string', description: 'Opening line used for introductions.' },
       },
       required: ['action'],
@@ -250,10 +286,42 @@ export function apply(ctx) {
       }
       if (action === 'card_update' || action === 'card_create') {
         const patch = {}
-        for (const key of ['name', 'title', 'description', 'style', 'greeting']) {
+        for (const key of ['name', 'title', 'greeting']) {
           if (args[key] !== undefined) patch[key] = args[key]
         }
-        if (args.rules !== undefined) patch.rules = Array.isArray(args.rules) ? args.rules : []
+        if (args.sections !== undefined) {
+          patch.sections = Array.isArray(args.sections) ? args.sections : []
+        }
+        if (args.traits !== undefined) patch.traits = args.traits
+        const legacyProvided =
+          args.description !== undefined || args.style !== undefined || args.rules !== undefined
+        if (legacyProvided && args.sections === undefined) {
+          if (action === 'card_create') {
+            for (const key of ['description', 'style']) {
+              if (args[key] !== undefined) patch[key] = args[key]
+            }
+            if (args.rules !== undefined) patch.rules = Array.isArray(args.rules) ? args.rules : []
+          } else {
+            const targetId = args.card_id || store.activeCard()?.id
+            const target = store.state.cards.find((card) => card.id === targetId)
+            if (!target) throw new Error('人物卡不存在')
+            let sections = target.sections.map((section) => ({ ...section }))
+            const setSection = (label, content) => {
+              const index = sections.findIndex((section) => section.label === label)
+              if (index >= 0) sections[index] = { ...sections[index], content }
+              else sections.push({ label, content })
+            }
+            if (args.description !== undefined) setSection('人格描述', args.description)
+            if (args.style !== undefined) setSection('说话风格', args.style)
+            if (args.rules !== undefined) {
+              sections = sections.filter((section) => !section.label.startsWith('准则'))
+              ;(Array.isArray(args.rules) ? args.rules : []).forEach((rule, index) => {
+                sections.push({ label: `准则 ${index + 1}`, content: String(rule ?? '') })
+              })
+            }
+            patch.sections = sections
+          }
+        }
         if (action === 'card_update') {
           patch.id = args.card_id || store.activeCard()?.id
           if (!patch.id) throw new Error('没有可更新的人物卡')
@@ -280,9 +348,19 @@ export function apply(ctx) {
         card ? `当前人物卡：${card.name}${card.title ? ` · ${card.title}` : ''}（${card.id}）` : '当前没有人物卡',
         `记忆 ${state.stats.active} 条（${state.stats.due} 条待复习，${state.stats.forgotten} 条已遗忘）｜日记 ${state.stats.diaries} 篇｜资料库 ${state.stats.library} 条`,
       ]
-      if (card?.description) lines.push(`人格：${truncate(card.description, 220)}`)
-      if (card?.style) lines.push(`风格：${truncate(card.style, 160)}`)
-      if (card?.rules?.length) lines.push(`准则：${card.rules.map((rule) => truncate(rule, 80)).join('；')}`)
+      if (card?.sections?.length) {
+        lines.push(`卡片条目（${card.sections.length}）：${card.sections.map((section) => section.label).join('、')}`)
+        for (const section of card.sections.slice(0, 6)) {
+          lines.push(`- ${section.label}：${truncate(section.content, 120)}`)
+        }
+      }
+      if (card?.traits) {
+        lines.push(
+          `表现权重：${Object.entries(TRAIT_LABELS)
+            .map(([key, label]) => `${label} ${card.traits[key] ?? 50}`)
+            .join(' · ')}`,
+        )
+      }
       lines.push(`可用人物卡：${state.cards.map((entry) => `${entry.name}（${entry.id}）`).join('、')}`)
       return {
         summary: lines.join('\n'),

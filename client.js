@@ -36,7 +36,23 @@ window.__ModuleLoader__.load({
         'card.new': '新建人物卡',
         'card.copy': '复制当前卡',
         'card.delete': '删除',
-        'card.deleteConfirm': '确定删除这张人物卡吗？它的全部记忆也会一起删除。',
+        'card.deleteConfirm': '确定删除这张人物卡吗？它的全部记忆、日记和资料库也会一起删除。',
+        'card.traits': '表现权重',
+        'card.traitsHint': '0 表示关闭，50 是默认，100 表示强烈。数值会影响提示词里的语气约束。',
+        'card.sections': '人物卡条目',
+        'card.sectionsHint': '每个条目会以【标题】内容的形式进入提示词；可以自定义标题（口癖、世界观、禁忌等），也可以删除或调整顺序。',
+        'card.addSection': '添加条目',
+        'card.sectionPlaceholder': '条目标题，例如：口癖 / 世界观 / 禁忌',
+        'card.contentPlaceholder': '这个条目的具体内容…',
+        'card.sectionsEmpty': '还没有条目。点「添加条目」自定义人物卡的描述、风格或规则。',
+        'card.up': '上移',
+        'card.down': '下移',
+        'trait.humanize': '拟人度',
+        'trait.memes': '玩梗',
+        'trait.emotion': '情绪',
+        'trait.actions': '动作描写',
+        'trait.initiative': '主动性',
+        'trait.teasing': '吐槽',
         'card.unsaved': '有未保存的修改',
         'card.savedAt': '已保存',
         'mem.total': '记忆',
@@ -244,7 +260,23 @@ window.__ModuleLoader__.load({
         'card.new': 'New character',
         'card.copy': 'Duplicate',
         'card.delete': 'Delete',
-        'card.deleteConfirm': 'Delete this character card? All of its memories will be deleted too.',
+        'card.deleteConfirm': 'Delete this character card? All of its memories, diaries, and library entries will be deleted too.',
+        'card.traits': 'Behavior weights',
+        'card.traitsHint': '0 disables it, 50 is the default, 100 is strong. The numbers shape the prompt guidance.',
+        'card.sections': 'Character sections',
+        'card.sectionsHint': 'Each section enters the prompt as 【title】 content. Custom titles (verbal tic, worldview, taboos…) are allowed, and you can delete or reorder them.',
+        'card.addSection': 'Add section',
+        'card.sectionPlaceholder': 'Section title, e.g. verbal tic / worldview / taboos',
+        'card.contentPlaceholder': 'What this section should say…',
+        'card.sectionsEmpty': 'No sections yet. Add one to describe the character in your own words.',
+        'card.up': 'Move up',
+        'card.down': 'Move down',
+        'trait.humanize': 'Human-ness',
+        'trait.memes': 'Memes',
+        'trait.emotion': 'Emotion',
+        'trait.actions': 'Action asides',
+        'trait.initiative': 'Initiative',
+        'trait.teasing': 'Teasing',
         'card.unsaved': 'Unsaved changes',
         'card.savedAt': 'Saved',
         'mem.total': 'Memories',
@@ -553,6 +585,14 @@ window.__ModuleLoader__.load({
       return '★'.repeat(filled) + '☆'.repeat(5 - filled)
     }
 
+    function newSectionId() {
+      try {
+        return crypto.randomUUID()
+      } catch {
+        return 'sec-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8)
+      }
+    }
+
     function splitRules(text) {
       return String(text || '')
         .split('\n')
@@ -837,7 +877,8 @@ window.__ModuleLoader__.load({
         if (!state || !state.activeCard) return
         setDraft({
           ...state.activeCard,
-          rulesText: (state.activeCard.rules || []).join('\n'),
+          sections: (state.activeCard.sections || []).map((section) => ({ ...section })),
+          traits: { ...(state.activeCard.traits || {}) },
         })
       }, [activeId, activeStamp])
 
@@ -959,15 +1000,45 @@ window.__ModuleLoader__.load({
     function PersonaTab(props) {
       const { t, state, draft, setDraft, run, busy } = props
       if (!draft) return null
+      const sections = Array.isArray(draft.sections) ? draft.sections : []
+      const traits = draft.traits || {}
       const update = (key, value) => setDraft({ ...draft, [key]: value })
+      const updateTrait = (key, value) =>
+        setDraft({ ...draft, traits: { ...traits, [key]: Number(value) } })
+      const updateSection = (index, patch) =>
+        setDraft({
+          ...draft,
+          sections: sections.map((section, position) =>
+            position === index ? { ...section, ...patch } : section,
+          ),
+        })
+      const addSection = () =>
+        setDraft({
+          ...draft,
+          sections: [...sections, { id: newSectionId(), label: '', content: '' }],
+        })
+      const removeSection = (index) =>
+        setDraft({ ...draft, sections: sections.filter((_, position) => position !== index) })
+      const moveSection = (index, delta) => {
+        const target = index + delta
+        if (target < 0 || target >= sections.length) return
+        const next = [...sections]
+        ;[next[index], next[target]] = [next[target], next[index]]
+        setDraft({ ...draft, sections: next })
+      }
+
+      const cardPayload = () => ({
+        id: draft.id,
+        name: draft.name,
+        title: draft.title,
+        greeting: draft.greeting,
+        sections,
+        traits,
+      })
 
       const save = () =>
         run(
-          () =>
-            store.mutate('/card', {
-              action: 'save',
-              card: { ...draft, rules: splitRules(draft.rulesText) },
-            }),
+          () => store.mutate('/card', { action: 'save', card: cardPayload() }),
           t('notice.cardSaved'),
         )
 
@@ -978,10 +1049,9 @@ window.__ModuleLoader__.load({
             card: {
               name: draft.name ? draft.name + ' (2)' : t('card.new'),
               title: draft.title,
-              description: draft.description,
-              style: draft.style,
-              rules: splitRules(draft.rulesText),
               greeting: draft.greeting,
+              sections,
+              traits,
             },
           })
           await store.mutate('/card', { action: 'activate', id: data.card.id })
@@ -991,6 +1061,15 @@ window.__ModuleLoader__.load({
         if (!window.confirm(t('card.deleteConfirm'))) return
         run(() => store.mutate('/card', { action: 'delete', id: draft.id }), t('notice.cardDeleted'))
       }
+
+      const traitRows = [
+        ['humanize', 'trait.humanize'],
+        ['memes', 'trait.memes'],
+        ['emotion', 'trait.emotion'],
+        ['actions', 'trait.actions'],
+        ['initiative', 'trait.initiative'],
+        ['teasing', 'trait.teasing'],
+      ]
 
       return h(
         'div',
@@ -1050,33 +1129,108 @@ window.__ModuleLoader__.load({
             onChange: (event) => update('title', event.target.value),
           })),
         ),
-        h(Field, { label: t('card.desc') }, h(AutoTextarea, {
-          className: 'dspm-textarea',
-          rows: 4,
-          maxHeight: 380,
-          value: draft.description,
-          onChange: (event) => update('description', event.target.value),
-        })),
-        h(Field, { label: t('card.style') }, h(AutoTextarea, {
-          className: 'dspm-textarea',
-          rows: 3,
-          maxHeight: 320,
-          value: draft.style,
-          onChange: (event) => update('style', event.target.value),
-        })),
-        h(Field, { label: t('card.rules') }, h(AutoTextarea, {
-          className: 'dspm-textarea',
-          rows: 4,
-          maxHeight: 380,
-          value: draft.rulesText,
-          onChange: (event) => update('rulesText', event.target.value),
-        })),
         h(Field, { label: t('card.greeting') }, h('input', {
           className: 'dspm-input',
           value: draft.greeting,
           maxLength: 500,
           onChange: (event) => update('greeting', event.target.value),
         })),
+        h(
+          'div',
+          { className: 'dspm-subhead' },
+          h('span', null, t('card.traits')),
+          h(InfoHint, { text: t('card.traitsHint') }),
+        ),
+        h(
+          'div',
+          { className: 'dspm-grid-2' },
+          traitRows.map(([key, labelKey]) =>
+            h(
+              'div',
+              { className: 'dspm-trait', key },
+              h(
+                'div',
+                { className: 'dspm-trait-head' },
+                h('span', { className: 'dspm-field-label' }, t(labelKey)),
+                h('span', { className: 'dspm-trait-value' }, traits[key] ?? 50),
+              ),
+              h('input', {
+                className: 'dspm-range',
+                type: 'range',
+                min: 0,
+                max: 100,
+                step: 5,
+                value: traits[key] ?? 50,
+                onChange: (event) => updateTrait(key, event.target.value),
+              }),
+            ),
+          ),
+        ),
+        h(
+          'div',
+          { className: 'dspm-subhead' },
+          h(
+            'span',
+            { className: 'dspm-subhead-text' },
+            t('card.sections'),
+            h(InfoHint, { text: t('card.sectionsHint') }),
+          ),
+          h(Btn, { onClick: addSection, disabled: busy }, t('card.addSection')),
+        ),
+        sections.length
+          ? sections.map((section, index) =>
+              h(
+                'div',
+                { className: 'dspm-section', key: section.id },
+                h(
+                  'div',
+                  { className: 'dspm-section-head' },
+                  h('input', {
+                    className: 'dspm-input dspm-section-label',
+                    value: section.label,
+                    maxLength: 60,
+                    placeholder: t('card.sectionPlaceholder'),
+                    onChange: (event) => updateSection(index, { label: event.target.value }),
+                  }),
+                  h(
+                    'div',
+                    { className: 'dspm-actions' },
+                    h(
+                      Btn,
+                      {
+                        onClick: () => moveSection(index, -1),
+                        disabled: index === 0,
+                        title: t('card.up'),
+                      },
+                      '↑',
+                    ),
+                    h(
+                      Btn,
+                      {
+                        onClick: () => moveSection(index, 1),
+                        disabled: index === sections.length - 1,
+                        title: t('card.down'),
+                      },
+                      '↓',
+                    ),
+                    h(
+                      Btn,
+                      { variant: 'danger', onClick: () => removeSection(index), disabled: busy },
+                      t('btn.delete'),
+                    ),
+                  ),
+                ),
+                h(AutoTextarea, {
+                  className: 'dspm-textarea',
+                  rows: 3,
+                  maxHeight: 300,
+                  placeholder: t('card.contentPlaceholder'),
+                  value: section.content,
+                  onChange: (event) => updateSection(index, { content: event.target.value }),
+                }),
+              ),
+            )
+          : h(Empty, null, t('card.sectionsEmpty')),
         h(
           'div',
           { className: 'dspm-actions' },
@@ -2052,6 +2206,15 @@ window.__ModuleLoader__.load({
 .dspm-card-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .dspm-card-title { display: flex; align-items: center; gap: 6px; font-weight: 600; }
 .dspm-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.dspm-subhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; font-weight: 600; }
+.dspm-subhead-text { display: inline-flex; align-items: center; gap: 6px; }
+.dspm-trait { display: flex; flex-direction: column; gap: 5px; padding: 8px 10px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-base); }
+.dspm-trait-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dspm-trait-value { color: var(--dsw-alias-label-primary); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.dspm-range { width: 100%; accent-color: var(--dsw-alias-state-business-primary, #4176e6); }
+.dspm-section { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 9px; background: var(--dsw-alias-bg-base); }
+.dspm-section-head { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.dspm-section-label { flex: 1; min-width: 180px; }
 .dspm-field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
 .dspm-field-label { display: inline-flex; align-items: center; gap: 5px; color: var(--dsw-alias-label-secondary); font-size: 12px; }
 .dspm-hint { color: var(--dsw-alias-label-secondary); font-size: 11px; margin: 0; }
