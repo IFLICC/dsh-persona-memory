@@ -13,6 +13,11 @@ const API_BASE = '/api/dsh-persona-memory'
 const MAX_BODY_BYTES = 8 * 1024 * 1024
 const REPO_URL = 'https://github.com/ifenc/dsh-persona-memory'
 const RAW_PACKAGE_URL = 'https://raw.githubusercontent.com/ifenc/dsh-persona-memory/main/package.json'
+const UPDATE_SOURCES = [
+  RAW_PACKAGE_URL,
+  'https://cdn.jsdelivr.net/gh/ifenc/dsh-persona-memory@main/package.json',
+  'https://api.github.com/repos/ifenc/dsh-persona-memory/contents/package.json?ref=main',
+]
 const TRAIT_LABELS = {
   humanize: '拟人度',
   memes: '玩梗',
@@ -92,22 +97,51 @@ function sendJson(res, status, payload) {
 
 let updateCheckCache = { at: 0, value: null }
 
+async function fetchRemoteVersion() {
+  let lastError = null
+  for (const url of UPDATE_SOURCES) {
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'user-agent': `dsh-persona-memory/${PLUGIN_VERSION}`,
+          accept: 'application/vnd.github.raw',
+        },
+        signal: AbortSignal.timeout(6000),
+        cache: 'no-store',
+      })
+      if (!response.ok) throw new Error(`HTTP ${response.status}`)
+      const text = await response.text()
+      let pkg = null
+      try {
+        pkg = JSON.parse(text)
+      } catch {
+        pkg = null
+      }
+      if (pkg && typeof pkg.version === 'string' && pkg.version.trim()) {
+        return { version: pkg.version.trim(), source: url }
+      }
+      if (pkg && typeof pkg.content === 'string') {
+        const decoded = JSON.parse(Buffer.from(pkg.content, 'base64').toString('utf8'))
+        if (decoded && typeof decoded.version === 'string' && decoded.version.trim()) {
+          return { version: decoded.version.trim(), source: url }
+        }
+      }
+      throw new Error('响应里没有 version')
+    } catch (error) {
+      lastError = error
+    }
+  }
+  throw lastError ?? new Error('没有可用的更新源')
+}
+
 async function checkForUpdate() {
   const now = Date.now()
   if (updateCheckCache.value && now - updateCheckCache.at < 5 * 60 * 1000) {
     return { ...updateCheckCache.value, cached: true }
   }
-  let latest = ''
+  let remote
   try {
-    const response = await fetch(RAW_PACKAGE_URL, {
-      headers: { 'user-agent': `dsh-persona-memory/${PLUGIN_VERSION}` },
-      signal: AbortSignal.timeout(15000),
-      cache: 'no-store',
-    })
-    if (!response.ok) throw new Error(`GitHub 返回 HTTP ${response.status}`)
-    const pkg = await response.json()
-    latest = typeof pkg.version === 'string' ? pkg.version.trim() : ''
-    if (!latest) throw new Error('远端 package.json 没有 version')
+    remote = await fetchRemoteVersion()
   } catch (error) {
     const cause = error && error.cause && error.cause.message ? `（${error.cause.message}）` : ''
     return {
@@ -120,10 +154,11 @@ async function checkForUpdate() {
   const value = {
     ok: true,
     current: PLUGIN_VERSION,
-    latest,
-    updateAvailable: compareSemver(latest, PLUGIN_VERSION) > 0,
+    latest: remote.version,
+    updateAvailable: compareSemver(remote.version, PLUGIN_VERSION) > 0,
     repo: REPO_URL,
     releases: `${REPO_URL}/releases`,
+    source: remote.source,
     checkedAt: Date.now(),
   }
   updateCheckCache = { at: value.checkedAt, value }
