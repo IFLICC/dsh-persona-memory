@@ -601,6 +601,27 @@ window.__ModuleLoader__.load({
       }
     }
 
+    function asTraitArray(raw) {
+      if (Array.isArray(raw)) {
+        return raw.map((trait) => ({
+          ...trait,
+          id: trait && trait.id ? trait.id : newSectionId(),
+          key: trait && typeof trait.key === 'string' ? trait.key : '',
+          label: trait && typeof trait.label === 'string' ? trait.label : '',
+          value: Number.isFinite(Number(trait && trait.value)) ? Number(trait.value) : 50,
+        }))
+      }
+      if (raw && typeof raw === 'object') {
+        return Object.entries(raw).map(([key, value]) => ({
+          id: newSectionId(),
+          key,
+          label: key,
+          value: Number.isFinite(Number(value)) ? Number(value) : 50,
+        }))
+      }
+      return []
+    }
+
     function splitRules(text) {
       return String(text || '')
         .split('\n')
@@ -870,6 +891,43 @@ window.__ModuleLoader__.load({
     /* Settings page                                                     */
     /* ---------------------------------------------------------------- */
 
+    class SettingsErrorBoundary extends React.Component {
+      constructor(props) {
+        super(props)
+        this.state = { error: null }
+      }
+
+      static getDerivedStateFromError(error) {
+        return { error }
+      }
+
+      componentDidCatch(error) {
+        try {
+          console.error('dsh-persona-memory settings:', error)
+        } catch {
+          /* console may be unavailable */
+        }
+      }
+
+      render() {
+        if (this.state.error) {
+          const t = this.props.t
+          return h(
+            'div',
+            { className: 'dspm-page' },
+            h(
+              'div',
+              { className: 'dspm-card' },
+              h('div', { className: 'dspm-card-title' }, t('notice.failed')),
+              h('p', { className: 'dspm-hint' }, String(this.state.error?.message || this.state.error)),
+              h('div', { className: 'dspm-actions' }, h(Btn, { onClick: () => this.setState({ error: null }) }, t('btn.refresh'))),
+            ),
+          )
+        }
+        return this.props.children
+      }
+    }
+
     function SettingsPage(props) {
       const t = props.t
       const snap = usePersona()
@@ -886,7 +944,7 @@ window.__ModuleLoader__.load({
         setDraft({
           ...state.activeCard,
           sections: (state.activeCard.sections || []).map((section) => ({ ...section })),
-          traits: (state.activeCard.traits || []).map((trait) => ({ ...trait })),
+          traits: asTraitArray(state.activeCard.traits),
         })
       }, [activeId, activeStamp])
 
@@ -1009,7 +1067,7 @@ window.__ModuleLoader__.load({
       const { t, state, draft, setDraft, run, busy } = props
       if (!draft) return null
       const sections = Array.isArray(draft.sections) ? draft.sections : []
-      const traits = Array.isArray(draft.traits) ? draft.traits : []
+      const traits = asTraitArray(draft.traits)
       const update = (key, value) => setDraft({ ...draft, [key]: value })
       const updateTrait = (index, patch) =>
         setDraft({
@@ -2402,7 +2460,7 @@ window.__ModuleLoader__.load({
               label: () => t('title'),
               locale: NS,
             },
-            (slotProps) => h(SettingsPage, { ...slotProps, t }),
+            (slotProps) => h(SettingsErrorBoundary, { t }, h(SettingsPage, { ...slotProps, t })),
           ),
         )
         ctx.slots.inject('conversation.hero.options', () =>
