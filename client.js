@@ -39,7 +39,10 @@ window.__ModuleLoader__.load({
         'card.delete': '删除',
         'card.deleteConfirm': '确定删除这张人物卡吗？它的全部记忆、日记和资料库也会一起删除。',
         'card.traits': '表现权重',
-        'card.traitsHint': '0 表示关闭，50 是默认，100 表示强烈。数值会影响提示词里的语气约束。',
+        'card.traitsHint': '每个权重有名字和 0–100 的数值；可以自己添加（毒舌、黏人、正经…），也可以删除或改名。数值越高，这个特质越明显。',
+        'card.addTrait': '添加权重',
+        'card.traitPlaceholder': '权重名字，例如：毒舌 / 黏人',
+        'card.traitsEmpty': '还没有权重。点「添加权重」自定义想要加强或压制的特质。',
         'card.sections': '人物卡条目',
         'card.sectionsHint': '每个条目会以【标题】内容的形式进入提示词；可以自定义标题（口癖、世界观、禁忌等），也可以删除或调整顺序。',
         'card.addSection': '添加条目',
@@ -264,7 +267,10 @@ window.__ModuleLoader__.load({
         'card.delete': 'Delete',
         'card.deleteConfirm': 'Delete this character card? All of its memories, diaries, and library entries will be deleted too.',
         'card.traits': 'Behavior weights',
-        'card.traitsHint': '0 disables it, 50 is the default, 100 is strong. The numbers shape the prompt guidance.',
+        'card.traitsHint': 'Each weight has a name and a 0–100 value. Add your own (teasing, clingy, formal…), delete, or rename them; higher values make the trait stronger.',
+        'card.addTrait': 'Add weight',
+        'card.traitPlaceholder': 'Weight name, e.g. teasing / clingy',
+        'card.traitsEmpty': 'No weights yet. Add one to boost or suppress a trait.',
         'card.sections': 'Character sections',
         'card.sectionsHint': 'Each section enters the prompt as 【title】 content. Custom titles (verbal tic, worldview, taboos…) are allowed, and you can delete or reorder them.',
         'card.addSection': 'Add section',
@@ -880,7 +886,7 @@ window.__ModuleLoader__.load({
         setDraft({
           ...state.activeCard,
           sections: (state.activeCard.sections || []).map((section) => ({ ...section })),
-          traits: { ...(state.activeCard.traits || {}) },
+          traits: (state.activeCard.traits || []).map((trait) => ({ ...trait })),
         })
       }, [activeId, activeStamp])
 
@@ -1003,10 +1009,29 @@ window.__ModuleLoader__.load({
       const { t, state, draft, setDraft, run, busy } = props
       if (!draft) return null
       const sections = Array.isArray(draft.sections) ? draft.sections : []
-      const traits = draft.traits || {}
+      const traits = Array.isArray(draft.traits) ? draft.traits : []
       const update = (key, value) => setDraft({ ...draft, [key]: value })
-      const updateTrait = (key, value) =>
-        setDraft({ ...draft, traits: { ...traits, [key]: Number(value) } })
+      const updateTrait = (index, patch) =>
+        setDraft({
+          ...draft,
+          traits: traits.map((trait, position) =>
+            position === index ? { ...trait, ...patch } : trait,
+          ),
+        })
+      const addTrait = () =>
+        setDraft({
+          ...draft,
+          traits: [...traits, { id: newSectionId(), key: '', label: '', value: 50 }],
+        })
+      const removeTrait = (index) =>
+        setDraft({ ...draft, traits: traits.filter((_, position) => position !== index) })
+      const moveTrait = (index, delta) => {
+        const target = index + delta
+        if (target < 0 || target >= traits.length) return
+        const next = [...traits]
+        ;[next[index], next[target]] = [next[target], next[index]]
+        setDraft({ ...draft, traits: next })
+      }
       const updateSection = (index, patch) =>
         setDraft({
           ...draft,
@@ -1057,15 +1082,6 @@ window.__ModuleLoader__.load({
         if (!window.confirm(t('card.deleteConfirm'))) return
         run(() => store.mutate('/card', { action: 'delete', id: draft.id }), t('notice.cardDeleted'))
       }
-
-      const traitRows = [
-        ['humanize', 'trait.humanize'],
-        ['memes', 'trait.memes'],
-        ['emotion', 'trait.emotion'],
-        ['actions', 'trait.actions'],
-        ['initiative', 'trait.initiative'],
-        ['teasing', 'trait.teasing'],
-      ]
 
       return h(
         'div',
@@ -1134,34 +1150,74 @@ window.__ModuleLoader__.load({
         h(
           'div',
           { className: 'dspm-subhead' },
-          h('span', null, t('card.traits')),
-          h(InfoHint, { text: t('card.traitsHint') }),
-        ),
-        h(
-          'div',
-          { className: 'dspm-grid-2' },
-          traitRows.map(([key, labelKey]) =>
-            h(
-              'div',
-              { className: 'dspm-trait', key },
-              h(
-                'div',
-                { className: 'dspm-trait-head' },
-                h('span', { className: 'dspm-field-label' }, t(labelKey)),
-                h('span', { className: 'dspm-trait-value' }, traits[key] ?? 50),
-              ),
-              h('input', {
-                className: 'dspm-range',
-                type: 'range',
-                min: 0,
-                max: 100,
-                step: 5,
-                value: traits[key] ?? 50,
-                onChange: (event) => updateTrait(key, event.target.value),
-              }),
-            ),
+          h(
+            'span',
+            { className: 'dspm-subhead-text' },
+            t('card.traits'),
+            h(InfoHint, { text: t('card.traitsHint') }),
           ),
+          h(Btn, { onClick: addTrait, disabled: busy }, t('card.addTrait')),
         ),
+        traits.length
+          ? h(
+              'div',
+              { className: 'dspm-grid-2' },
+              traits.map((trait, index) =>
+                h(
+                  'div',
+                  { className: 'dspm-trait', key: trait.id },
+                  h(
+                    'div',
+                    { className: 'dspm-trait-head' },
+                    h('input', {
+                      className: 'dspm-input dspm-trait-label',
+                      value: trait.label,
+                      maxLength: 40,
+                      placeholder: t('card.traitPlaceholder'),
+                      onChange: (event) => updateTrait(index, { label: event.target.value }),
+                    }),
+                    h('span', { className: 'dspm-trait-value' }, trait.value),
+                    h(
+                      'div',
+                      { className: 'dspm-actions' },
+                      h(
+                        Btn,
+                        {
+                          onClick: () => moveTrait(index, -1),
+                          disabled: index === 0,
+                          title: t('card.up'),
+                        },
+                        '↑',
+                      ),
+                      h(
+                        Btn,
+                        {
+                          onClick: () => moveTrait(index, 1),
+                          disabled: index === traits.length - 1,
+                          title: t('card.down'),
+                        },
+                        '↓',
+                      ),
+                      h(
+                        Btn,
+                        { variant: 'danger', onClick: () => removeTrait(index), disabled: busy },
+                        t('btn.delete'),
+                      ),
+                    ),
+                  ),
+                  h('input', {
+                    className: 'dspm-range',
+                    type: 'range',
+                    min: 0,
+                    max: 100,
+                    step: 5,
+                    value: trait.value,
+                    onChange: (event) => updateTrait(index, { value: Number(event.target.value) }),
+                  }),
+                ),
+              ),
+            )
+          : h(Empty, null, t('card.traitsEmpty')),
         h(
           'div',
           { className: 'dspm-subhead' },
@@ -2205,7 +2261,8 @@ window.__ModuleLoader__.load({
 .dspm-subhead { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 4px; font-weight: 600; }
 .dspm-subhead-text { display: inline-flex; align-items: center; gap: 6px; }
 .dspm-trait { display: flex; flex-direction: column; gap: 5px; padding: 8px 10px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 8px; background: var(--dsw-alias-bg-base); }
-.dspm-trait-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.dspm-trait-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.dspm-trait-label { flex: 1; min-width: 90px; }
 .dspm-trait-value { color: var(--dsw-alias-label-primary); font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .dspm-range { width: 100%; accent-color: var(--dsw-alias-state-business-primary, #4176e6); }
 .dspm-section { display: flex; flex-direction: column; gap: 8px; padding: 10px 12px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 9px; background: var(--dsw-alias-bg-base); }

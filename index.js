@@ -18,14 +18,6 @@ const UPDATE_SOURCES = [
   'https://cdn.jsdelivr.net/gh/ifenc/dsh-persona-memory@main/package.json',
   'https://api.github.com/repos/ifenc/dsh-persona-memory/contents/package.json?ref=main',
 ]
-const TRAIT_LABELS = {
-  humanize: '拟人度',
-  memes: '玩梗',
-  emotion: '情绪',
-  actions: '动作描写',
-  initiative: '主动性',
-  teasing: '吐槽',
-}
 
 let PLUGIN_VERSION = '0.0.0'
 try {
@@ -289,17 +281,23 @@ export function apply(ctx) {
           },
         },
         traits: {
-          type: 'object',
-          description: 'Behavior weights from 0 to 100.',
-          properties: {
-            humanize: { type: 'integer', minimum: 0, maximum: 100, description: '拟人程度' },
-            memes: { type: 'integer', minimum: 0, maximum: 100, description: '玩梗频率' },
-            emotion: { type: 'integer', minimum: 0, maximum: 100, description: '情绪强度' },
-            actions: { type: 'integer', minimum: 0, maximum: 100, description: '动作描写' },
-            initiative: { type: 'integer', minimum: 0, maximum: 100, description: '主动性' },
-            teasing: { type: 'integer', minimum: 0, maximum: 100, description: '吐槽/傲娇' },
+          type: 'array',
+          description:
+            'Behavior weight entries from 0 to 100. Users may add custom labels (e.g. 毒舌, 黏人) and delete built-in entries.',
+          items: {
+            type: 'object',
+            properties: {
+              id: { type: 'string', description: 'Existing trait id; omit for a new one.' },
+              key: {
+                type: 'string',
+                description: 'Built-in key when editing a built-in trait, otherwise omit.',
+              },
+              label: { type: 'string', description: 'Trait name shown in the prompt.' },
+              value: { type: 'integer', minimum: 0, maximum: 100, description: 'Weight value.' },
+            },
+            required: ['label', 'value'],
+            additionalProperties: false,
           },
-          additionalProperties: false,
         },
         greeting: { type: 'string', description: 'Opening line used for introductions.' },
       },
@@ -389,11 +387,9 @@ export function apply(ctx) {
           lines.push(`- ${section.label}：${truncate(section.content, 120)}`)
         }
       }
-      if (card?.traits) {
+      if (card?.traits?.length) {
         lines.push(
-          `表现权重：${Object.entries(TRAIT_LABELS)
-            .map(([key, label]) => `${label} ${card.traits[key] ?? 50}`)
-            .join(' · ')}`,
+          `表现权重：${card.traits.map((trait) => `${trait.label} ${trait.value}`).join(' · ')}`,
         )
       }
       lines.push(`可用人物卡：${state.cards.map((entry) => `${entry.name}（${entry.id}）`).join('、')}`)

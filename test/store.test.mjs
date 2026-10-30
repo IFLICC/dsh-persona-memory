@@ -283,6 +283,10 @@ test('full backup and card deletion handle library entries', () => {
   }
 })
 
+function traitValue(card, key) {
+  return card.traits.find((trait) => trait.key === key)?.value
+}
+
 test('legacy card fields migrate to sections and traits', () => {
   const seed = legacyStore()
   seed.cards[0] = {
@@ -302,7 +306,7 @@ test('legacy card fields migrate to sections and traits', () => {
       ['人格描述', '说话风格', '准则 1', '准则 2'],
     )
     assert.equal(card.sections[0].content, '描述内容')
-    assert.equal(card.traits.humanize, 50)
+    assert.equal(traitValue(card, 'humanize'), 50)
 
     const prompt = buildPersonaPrompt(store, Date.now(), '')
     assert.ok(prompt.includes('【人格描述】描述内容'))
@@ -323,11 +327,19 @@ test('custom sections and trait weights drive the prompt', () => {
         { label: '口癖', content: '喜欢说“欸嘿”' },
         { label: '禁忌', content: '不要讨论政治' },
       ],
-      traits: { humanize: 90, memes: 10, emotion: 70, actions: 30, initiative: 80, teasing: 20 },
+      traits: [
+        { key: 'humanize', label: '拟人度', value: 90 },
+        { key: 'memes', label: '玩梗', value: 10 },
+        { key: 'emotion', label: '情绪', value: 70 },
+        { key: 'actions', label: '动作描写', value: 30 },
+        { key: 'initiative', label: '主动性', value: 80 },
+        { key: 'teasing', label: '吐槽', value: 20 },
+        { label: '毒舌', value: 80 },
+      ],
     })
     const card = store.state.cards.find((entry) => entry.id === 'card-a')
     assert.deepEqual(card.sections.map((section) => section.label), ['口癖', '禁忌'])
-    assert.equal(card.traits.humanize, 90)
+    assert.equal(traitValue(card, 'humanize'), 90)
 
     const prompt = buildPersonaPrompt(store, Date.now(), '')
     assert.ok(prompt.includes('【口癖】喜欢说“欸嘿”'))
@@ -336,17 +348,21 @@ test('custom sections and trait weights drive the prompt', () => {
     assert.ok(prompt.includes('强烈拟人'))
     assert.ok(prompt.includes('玩梗 10'))
     assert.ok(prompt.includes('几乎不用网络梗'))
+    assert.ok(prompt.includes('毒舌 80'))
+    assert.ok(prompt.includes('比较明显'))
 
     const exported = store.exportData('cards')
     assert.equal(exported.data.cards[0].sections.length, 2)
-    assert.equal(exported.data.cards[0].traits.humanize, 90)
+    assert.equal(traitValue(exported.data.cards[0], 'humanize'), 90)
+    assert.equal(exported.data.cards[0].traits.find((trait) => trait.label === '毒舌').value, 80)
 
     const target = openStore()
     try {
       target.store.importData('cards', 'replace', exported)
       const imported = target.store.state.cards[0]
       assert.deepEqual(imported.sections.map((section) => section.label), ['口癖', '禁忌'])
-      assert.equal(imported.traits.humanize, 90)
+      assert.equal(traitValue(imported, 'humanize'), 90)
+      assert.equal(imported.traits.find((trait) => trait.label === '毒舌').value, 80)
     } finally {
       target.cleanup()
     }
@@ -362,7 +378,11 @@ test('creating a card uses the default template instead of the active card', () 
     store.saveCard({
       id: 'card-a',
       sections: [{ label: '口癖', content: '只属于 A 的设定' }],
-      traits: { humanize: 90, memes: 10 },
+      traits: [
+        { key: 'humanize', label: '拟人度', value: 90 },
+        { key: 'memes', label: '玩梗', value: 10 },
+        { label: '毒舌', value: 80 },
+      ],
     })
 
     const created = store.createCard({ name: '新人物卡' })
@@ -371,9 +391,23 @@ test('creating a card uses the default template instead of the active card', () 
       created.sections.map((section) => section.label),
       ['人格描述', '说话风格', '准则 1', '准则 2', '准则 3'],
     )
-    assert.equal(created.traits.humanize, 50)
-    assert.equal(created.traits.memes, 50)
+    assert.equal(traitValue(created, 'humanize'), 50)
+    assert.equal(traitValue(created, 'memes'), 50)
+    assert.ok(!created.traits.some((trait) => trait.label === '毒舌'))
     assert.ok(!created.sections.some((section) => section.label === '口癖'))
+  } finally {
+    cleanup()
+  }
+})
+
+test('trait entries can be deleted entirely', () => {
+  const { store, cleanup } = openStore(legacyStore())
+  try {
+    store.activateCard('card-a')
+    store.saveCard({ id: 'card-a', traits: [] })
+    const card = store.state.cards.find((entry) => entry.id === 'card-a')
+    assert.equal(card.traits.length, 0)
+    assert.ok(!buildPersonaPrompt(store, Date.now(), '').includes('【表现权重】'))
   } finally {
     cleanup()
   }
