@@ -378,3 +378,27 @@ test('creating a card uses the default template instead of the active card', () 
     cleanup()
   }
 })
+
+test('due memories from another card never enter the prompt', () => {
+  const { store, cleanup } = openStore(legacyStore())
+  try {
+    store.activateCard('card-a')
+    const memory = store.addMemory({
+      text: 'A 的模糊记忆：遥的角色曲是 Little Wish',
+      cardId: 'card-a',
+    })
+    memory.lastReviewedAt = Date.now() - 30 * DAY
+    memory.reviews = 0
+    assert.equal(store.isDue(memory), true)
+
+    store.activateCard('card-b')
+    const otherCardPrompt = buildPersonaPrompt(store, Date.now(), '')
+    assert.ok(!otherCardPrompt.includes('Little Wish'))
+
+    store.activateCard('card-a')
+    const ownCardPrompt = buildPersonaPrompt(store, Date.now(), '')
+    assert.ok(ownCardPrompt.includes('Little Wish'))
+  } finally {
+    cleanup()
+  }
+})
