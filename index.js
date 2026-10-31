@@ -1,8 +1,8 @@
 /**
  * @local/dsh-persona-memory — Host half.
  *
- * Keeps a persona (character card) in the system prompt, remembers facts with an
- * Ebbinghaus-style forgetting curve, and can keep a diary. The Web settings page
+ * Keeps a persona (character card) in the system prompt, remembers facts as
+ * memories fade over time, and can keep a diary. The Web settings page
  * talks to this file over the routes below.
  */
 import { readFileSync } from 'node:fs'
@@ -423,7 +423,7 @@ export function apply(ctx) {
   const memoryTool = {
     name: 'persona_memory',
     description:
-      'Read and maintain long-term memories that fade over time (Ebbinghaus forgetting curve). Remember durable facts with "remember", search and reinforce them with "recall", and deepen due memories with "review".',
+      'Read and maintain long-term memories that fade over time and strengthen with review. Remember durable facts with "remember", search and reinforce them with "recall", and deepen due memories with "review".',
     parameters: {
       type: 'object',
       properties: {

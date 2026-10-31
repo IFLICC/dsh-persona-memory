@@ -4,7 +4,7 @@
 
 给 [DeepSeek Harness (DSH)](https://github.com/deepseek-ai) 加上「人设 + 长期记忆 + 日记 + 资料库 + 表情包」的本地插件。
 
-English: a local-first DSH plugin that keeps a character card in the system prompt, remembers facts on an Ebbinghaus forgetting curve, and keeps per-character diaries, a reference library, and stickers.
+English: a local-first DSH plugin that keeps a character card in the system prompt, remembers facts over time as memories fade and are reviewed, and keeps per-character diaries, a reference library, and stickers.
 
 ## 功能
 
@@ -12,7 +12,7 @@ English: a local-first DSH plugin that keeps a character card in the system prom
 - **人物卡（自由条目 + 权重）**：人物卡由有序条目组成，标题和内容都可自定义（人格描述、说话风格、口癖、世界观、禁忌…），支持新增、编辑、删除、上移/下移；权重条目同样自由：默认提供「拟人度、玩梗、情绪、动作描写、主动性、吐槽」，可改名、调 0–100、删除，也可以新增「毒舌」「黏人」等自定义权重。提示词按数值生成约束，内置权重有细分档位，自定义权重用通用强度描述。新建人物卡使用内置的普通模板，不会复制当前卡；旧版固定字段会自动迁移。
 - **人物卡 + 记忆/日记/资料/表情包绑定**：每张人物卡有自己的一组记忆、日记、资料库和表情包；切换人物卡时提示词、记忆列表、日记本、资料库和表情包都会切到对应的那一套。可以单独清空当前人物卡的记忆、资料库和表情包，导入/导出也只针对当前卡；删除人物卡会连同它们一起删除。
 - **关闭后的语气提醒**：在一个开过人设的对话里关闭人设后，会额外注入一句很短的提醒，要求用普通助手语气、不要沿用之前的角色自称和动作描写，用来对抗对话历史的惯性。
-- **艾宾浩斯记忆**：记忆的清晰度按遗忘曲线随时间衰减；越久不回顾掉得越快。被注入提示词或主动复习会延长保留时间；重要记忆可置顶，永不遗忘。清晰度低于阈值后自动移入「已遗忘」，可以恢复。
+- **会自然变淡的长期记忆**：记忆的清晰度随时间自然衰减；越久不回顾掉得越快。被注入提示词或主动复习会延长保留时间；重要记忆可置顶，永不遗忘。清晰度低于阈值后自动移入「已遗忘」，可以恢复。
 - **日记**：可以开启「日记功能」让模型在对话自然收束时写日记；也可以开启「自动摘要」，每轮结束后把你说过的要点在本地汇总成当天的日记（不额外消耗模型调用）。
 - **资料库**：每张人物卡有自己的资料库，可以收录聊天里的梗、知识笔记、网上查到的资料（带来源链接）。模型通过 `persona_library` 工具搜索/查阅，学到新东西时会自动补充；用户可以在设置里手动新增、编辑、清空，或按当前卡导入导出。
 - **表情包**：每张人物卡可以单独开启/关闭发表情包；用户上传 PNG / JPEG / GIF / WebP（单张 ≤2MB），填名称和标签，支持删除、清空、按卡导入导出。模型在合适的时候通过 `persona_sticker` 的 `send` 拿到 Markdown 再发图，不会每轮都发；图片只在本机保存和由本地接口提供。
@@ -70,7 +70,7 @@ English: a local-first DSH plugin that keeps a character card in the system prom
 
 ```bash
 npm run check   # node --check：语法检查
-npm test        # node --test：存储、遗忘曲线、卡片绑定、导入导出测试
+npm test        # node --test：存储、记忆衰减、卡片绑定、导入导出测试
 ```
 
 目录结构：
@@ -78,7 +78,7 @@ npm test        # node --test：存储、遗忘曲线、卡片绑定、导入导
 | 路径 | 作用 |
 |---|---|
 | `index.js` | Host 半区：提示词注入、工具、HTTP 接口、自动摘要 |
-| `lib/store.js` | 存储层与遗忘曲线引擎（纯 Node，可独立测试） |
+| `lib/store.js` | 存储层与记忆衰减引擎（纯 Node，可独立测试） |
 | `client.js` | Web 设置页、输入框开关、右键菜单 |
 | `locale/` | 插件管理页的标题与描述 |
 | `cordis.patch.yml` | bundle 挂载 |

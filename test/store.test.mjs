@@ -39,7 +39,7 @@ function legacyStore(extra = {}) {
   }
 }
 
-test('memory fades on the forgetting curve and review extends it', () => {
+test('memory fades over time and review extends it', () => {
   const { store, cleanup } = openStore()
   try {
     const memory = store.addMemory({ text: '用户喜欢在雨天听爵士乐', importance: 4 })

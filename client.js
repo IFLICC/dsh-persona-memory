@@ -11,7 +11,7 @@ window.__ModuleLoader__.load({
     const DICTS = {
       zh: {
         title: '人格记忆',
-        desc: '保持人设、按遗忘曲线记住事情，并在需要时写日记。',
+        desc: '保持人设、记住事情，并在需要时写日记。',
         'tab.persona': '人设',
         'tab.memory': '记忆',
         'tab.diary': '日记',
@@ -177,7 +177,7 @@ window.__ModuleLoader__.load({
         'opt.max': '记忆上限',
         'opt.maxHint': '超出后优先保留清晰且重要的记忆。',
         'opt.storage': '数据文件',
-        'opt.curve': '记忆按艾宾浩斯遗忘曲线衰减：刚记住时衰减较慢，越久不回顾掉得越快；每次复习或自然想起都会延长保留时间，重要的事还可以置顶。',
+        'opt.curve': '记忆会随时间自然变淡：刚记住时掉得慢，越久不回顾掉得越快；每次复习或自然想起都会延长保留时间，重要的事还可以置顶。',
         'btn.save': '保存',
         'btn.add': '添加',
         'btn.delete': '删除',
@@ -264,7 +264,7 @@ window.__ModuleLoader__.load({
       },
       en: {
         title: 'Persona Memory',
-        desc: 'Keep a character persona, retain facts on a forgetting curve, and keep a diary.',
+        desc: 'Keep a character persona, remember things over time, and keep a diary.',
         'tab.persona': 'Persona',
         'tab.memory': 'Memory',
         'tab.diary': 'Diary',
@@ -430,7 +430,7 @@ window.__ModuleLoader__.load({
         'opt.max': 'Memory cap',
         'opt.maxHint': 'When full, clear and important memories are kept first.',
         'opt.storage': 'Data file',
-        'opt.curve': 'Memories decay on an Ebbinghaus curve: slow at first, then faster without review. Every review or natural recall extends their lifetime; important ones can be pinned.',
+        'opt.curve': 'Memories fade over time: slowly at first, faster without review. Every review or natural recall extends their lifetime; important ones can be pinned.',
         'btn.save': 'Save',
         'btn.add': 'Add',
         'btn.delete': 'Delete',
