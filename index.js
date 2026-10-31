@@ -10,6 +10,7 @@ import { PersonaStore, buildPersonaPrompt, buildPersonaOffReminder } from './lib
 import { compareSemver } from './lib/version.js'
 
 const API_BASE = '/api/dsh-persona-memory'
+const STICKER_ROUTE = `${API_BASE}/sticker`
 const MAX_BODY_BYTES = 8 * 1024 * 1024
 const REPO_URL = 'https://github.com/ifenc/dsh-persona-memory'
 const RAW_PACKAGE_URL = 'https://raw.githubusercontent.com/ifenc/dsh-persona-memory/main/package.json'
@@ -171,6 +172,16 @@ export function apply(ctx) {
   const store = new PersonaStore()
   ctx.effect(() => () => store.dispose(), 'persona-memory: flush store')
 
+  const stickerUrl = (id) => {
+    let origin = ''
+    try {
+      origin = ctx.webServer.getOrigin()
+    } catch {
+      origin = ''
+    }
+    return `${origin}${STICKER_ROUTE}/${id}`
+  }
+
   /* ---------------------------------------------------------------- */
   /* System prompt — one scoped section per root conversation          */
   /* ---------------------------------------------------------------- */
@@ -300,6 +311,10 @@ export function apply(ctx) {
           },
         },
         greeting: { type: 'string', description: 'Opening line used for introductions.' },
+        sticker_enabled: {
+          type: 'boolean',
+          description: 'Whether this character may send stickers in replies.',
+        },
       },
       required: ['action'],
       additionalProperties: false,
@@ -322,6 +337,7 @@ export function apply(ctx) {
         for (const key of ['name', 'title', 'greeting']) {
           if (args[key] !== undefined) patch[key] = args[key]
         }
+        if (args.sticker_enabled !== undefined) patch.stickerEnabled = args.sticker_enabled
         if (args.sections !== undefined) {
           patch.sections = Array.isArray(args.sections) ? args.sections : []
         }
@@ -379,7 +395,7 @@ export function apply(ctx) {
         `本对话人设：${sessionEnabled ? '已开启' : '已关闭'}`,
         `已开启人设的对话：${state.settings.personaSessions.length} 个`,
         card ? `当前人物卡：${card.name}${card.title ? ` · ${card.title}` : ''}（${card.id}）` : '当前没有人物卡',
-        `记忆 ${state.stats.active} 条（${state.stats.due} 条待复习，${state.stats.forgotten} 条已遗忘）｜日记 ${state.stats.diaries} 篇｜资料库 ${state.stats.library} 条`,
+        `记忆 ${state.stats.active} 条（${state.stats.due} 条待复习，${state.stats.forgotten} 条已遗忘）｜日记 ${state.stats.diaries} 篇｜资料库 ${state.stats.library} 条｜表情包 ${state.stats.stickers} 个`,
       ]
       if (card?.sections?.length) {
         lines.push(`卡片条目（${card.sections.length}）：${card.sections.map((section) => section.label).join('、')}`)
@@ -691,7 +707,71 @@ export function apply(ctx) {
     },
   }
 
-  for (const tool of [personaTool, memoryTool, diaryTool, libraryTool]) {
+  const stickerTool = {
+    name: 'persona_sticker',
+    description:
+      "Send a sticker from the current character's sticker library. Call action send to get a Markdown image, then put that Markdown on its own line in your reply. Only use a sticker when it fits the mood; do not send one every turn and never invent an image URL.",
+    parameters: {
+      type: 'object',
+      properties: {
+        action: {
+          type: 'string',
+          enum: ['send', 'list', 'search'],
+          description: 'Operation to perform.',
+        },
+        id: { type: 'string', description: 'Sticker id for send.' },
+        name: { type: 'string', description: 'Sticker name for send.' },
+        query: { type: 'string', description: 'Search text for list/search.' },
+        limit: { type: 'integer', minimum: 1, maximum: 50, description: 'Maximum stickers to return.' },
+      },
+      required: ['action'],
+      additionalProperties: false,
+    },
+    output: {
+      schema: { type: 'object' },
+      render: (_args, value) => [{ type: 'text', text: typeof value?.summary === 'string' ? value.summary : 'sticker operation finished' }],
+    },
+    async execute(args = {}) {
+      const card = store.activeCard()
+      if (!card) throw new Error('没有人物卡')
+      if (card.stickerEnabled === false) throw new Error('当前人物卡没有开启表情包')
+      const action = String(args.action ?? 'list')
+      if (action === 'send') {
+        let sticker = null
+        if (args.id) sticker = store.getSticker(String(args.id))
+        if (!sticker && args.name) {
+          const needle = String(args.name).trim().toLowerCase()
+          const entries = store.listStickers()
+          sticker =
+            entries.find((entry) => entry.name.toLowerCase() === needle) ||
+            entries.find((entry) => entry.name.toLowerCase().includes(needle))
+        }
+        if (!sticker) throw new Error('表情包不存在')
+        const alt = sticker.name.replace(/[\[\]\\]/g, ' ').trim() || 'sticker'
+        const markdown = `![${alt}](${stickerUrl(sticker.id)})`
+        return {
+          summary: `已准备表情包「${sticker.name}」。把下面这一行原样放进回复：\n${markdown}`,
+          markdown,
+          sticker,
+        }
+      }
+      const limit = Math.min(50, Number(args.limit) || 20)
+      const stickers = store.listStickers({ query: String(args.query ?? '') }).slice(0, limit)
+      return {
+        summary: stickers.length
+          ? stickers
+              .map((sticker) => {
+                const tags = sticker.tags.length ? ` #${sticker.tags.join(' #')}` : ''
+                return `- ${sticker.name}${tags}（${sticker.id}）`
+              })
+              .join('\n')
+          : '表情库里没有匹配的内容。',
+        stickers,
+      }
+    },
+  }
+
+  for (const tool of [personaTool, memoryTool, diaryTool, libraryTool, stickerTool]) {
     ctx.effect(() => ctx.tools.register(tool), `persona-memory: ${tool.name} tool`)
   }
 
@@ -771,6 +851,23 @@ export function apply(ctx) {
             }
             if (req.method === 'GET' && route === `${API_BASE}/export`) {
               sendJson(res, 200, store.exportData(String(url.searchParams.get('kind') ?? 'all')))
+              return
+            }
+            if (req.method === 'GET' && route.startsWith(`${STICKER_ROUTE}/`)) {
+              const id = decodeURIComponent(route.slice(STICKER_ROUTE.length + 1))
+              const sticker = store.getStickerAny(id)
+              if (!sticker) {
+                sendJson(res, 404, { ok: false, error: 'sticker not found' })
+                return
+              }
+              const comma = sticker.dataUrl.indexOf(',')
+              const bytes = Buffer.from(sticker.dataUrl.slice(comma + 1), 'base64')
+              res.writeHead(200, {
+                'content-type': sticker.mime,
+                'content-length': bytes.length,
+                'cache-control': 'public, max-age=31536000, immutable',
+              })
+              res.end(bytes)
               return
             }
             if (req.method !== 'POST') {
@@ -862,6 +959,19 @@ function handleAction(store, route, body) {
       return store.clearCardMemories()
     }
     throw new Error(`unknown memory action: ${action}`)
+  }
+  if (route === `${API_BASE}/sticker`) {
+    const action = String(body.action ?? 'list')
+    if (action === 'add') return { sticker: store.addSticker({ ...body }) }
+    if (action === 'delete') {
+      if (!store.deleteSticker(String(body.id ?? ''))) throw new Error('表情包不存在')
+      return { deleted: true }
+    }
+    if (action === 'clear') return store.clearCardStickers()
+    if (action === 'list') {
+      return { stickers: store.listStickers({ query: String(body.query ?? '') }) }
+    }
+    throw new Error(`unknown sticker action: ${action}`)
   }
   if (route === `${API_BASE}/library`) {
     const action = String(body.action ?? 'list')

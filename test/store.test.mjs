@@ -6,6 +6,8 @@ import path from 'node:path'
 import { PersonaStore, buildPersonaPrompt } from '../lib/store.js'
 
 const DAY = 24 * 60 * 60 * 1000
+const TINY_PNG =
+  'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Y9Z1ZkAAAAASUVORK5CYII='
 
 function openStore(seed) {
   const dir = mkdtempSync(path.join(tmpdir(), 'dsh-persona-'))
@@ -434,5 +436,71 @@ test('due memories from another card never enter the prompt', () => {
     assert.ok(ownCardPrompt.includes('Little Wish'))
   } finally {
     cleanup()
+  }
+})
+
+test('stickers bind to the active card and can be disabled', () => {
+  const { store, cleanup } = openStore(legacyStore())
+  try {
+    store.activateCard('card-a')
+    const sticker = store.addSticker({
+      name: '开心',
+      tags: ['测试', '日常'],
+      dataUrl: TINY_PNG,
+    })
+    assert.equal(sticker.name, '开心')
+    assert.equal(sticker.mime, 'image/png')
+    assert.equal(store.state.stickers.length, 1)
+    assert.equal(store.state.stickers[0].cardId, 'card-a')
+    assert.equal(store.getStickerAny(sticker.id).dataUrl, TINY_PNG)
+    assert.equal(store.listStickers()[0].name, '开心')
+
+    const prompt = buildPersonaPrompt(store, Date.now(), '')
+    assert.ok(prompt.includes('【表情包】'))
+    assert.ok(prompt.includes('开心'))
+
+    store.saveCard({ id: 'card-a', stickerEnabled: false })
+    const disabledPrompt = buildPersonaPrompt(store, Date.now(), '')
+    assert.ok(!disabledPrompt.includes('【表情包】'))
+    store.saveCard({ id: 'card-a', stickerEnabled: true })
+
+    store.activateCard('card-b')
+    assert.equal(store.listStickers().length, 0)
+    assert.ok(!buildPersonaPrompt(store, Date.now(), '').includes('【表情包】'))
+
+    store.activateCard('card-a')
+    store.deleteSticker(sticker.id)
+    assert.equal(store.state.stickers.length, 0)
+  } finally {
+    cleanup()
+  }
+})
+
+test('sticker export/import and card deletion', () => {
+  const source = openStore(legacyStore())
+  const target = openStore(legacyStore())
+  try {
+    source.store.activateCard('card-a')
+    const sticker = source.store.addSticker({ name: '无语', dataUrl: TINY_PNG })
+    const exported = source.store.exportData('stickers')
+    assert.equal(exported.data.cardId, 'card-a')
+    assert.equal(exported.data.stickers[0].dataUrl, TINY_PNG)
+
+    target.store.activateCard('card-b')
+    const result = target.store.importData('stickers', 'merge', exported)
+    assert.equal(result.stickers, 1)
+    assert.equal(target.store.listStickers()[0].name, '无语')
+    assert.notEqual(target.store.listStickers()[0].id, sticker.id)
+
+    source.store.activateCard('card-a')
+    assert.equal(source.store.clearCardStickers().stickers, 1)
+    assert.equal(source.store.state.stickers.length, 0)
+
+    source.store.addSticker({ name: '再来一张', dataUrl: TINY_PNG })
+    source.store.deleteCard('card-a')
+    assert.equal(source.store.state.stickers.length, 0)
+  } finally {
+    source.cleanup()
+    target.cleanup()
   }
 })

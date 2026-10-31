@@ -16,6 +16,7 @@ window.__ModuleLoader__.load({
         'tab.memory': '记忆',
         'tab.diary': '日记',
         'tab.library': '资料库',
+        'tab.stickers': '表情包',
         'tab.scope': '范围',
         'tab.options': '设置',
         'mode.on': '人设模式已开启',
@@ -133,6 +134,30 @@ window.__ModuleLoader__.load({
         'notice.libUpdated': '资料已更新。',
         'notice.libDeleted': '资料已删除。',
         'notice.libCleared': '已清空当前人物卡的资料库。',
+        'sticker.enabled': '允许发表情包',
+        'sticker.enabledHint': '开启后，模型可以在合适的时候用 persona_sticker 发送当前人物卡的表情包；不会每轮都发。',
+        'sticker.add': '添加表情包',
+        'sticker.name': '名称',
+        'sticker.namePlaceholder': '例如：开心 / 无语',
+        'sticker.search': '搜索表情包',
+        'sticker.noneMatch': '没有匹配的表情包。',
+        'sticker.tags': '标签（逗号分隔）',
+        'sticker.file': '图片文件',
+        'sticker.hint': '支持 PNG / JPEG / GIF / WebP，单张不超过 2MB。',
+        'sticker.empty': '还没有表情包。选择一张图片添加吧。',
+        'sticker.cardHint': '表情包跟着人物卡走：当前显示的是「{name}」的表情包，切换人物卡会切到对应的那一组。',
+        'sticker.ioNote': '导入 / 导出只针对当前人物卡的表情包。',
+        'sticker.deleteConfirm': '确定删除这个表情包吗？',
+        'sticker.clear': '清空此卡表情包',
+        'sticker.clearConfirm': '确定清空当前人物卡的全部表情包吗？',
+        'sticker.tooLarge': '图片不能超过 2MB。',
+        'sticker.readFailed': '读取图片失败。',
+        'sticker.chooseFirst': '请先选择一张图片。',
+        'sticker.defaultName': '表情包',
+        'notice.stickerAdded': '表情包已添加。',
+        'notice.stickerDeleted': '表情包已删除。',
+        'notice.stickerCleared': '已清空当前人物卡的表情包。',
+        'notice.stickerToggled': '表情包开关已更新。',
         'update.title': '版本与更新',
         'update.hint': '从 GitHub 的 main 分支读取 package.json 的 version 做比较；只检查，不会自动安装。',
         'update.current': '当前版本 v{version}',
@@ -244,6 +269,7 @@ window.__ModuleLoader__.load({
         'tab.memory': 'Memory',
         'tab.diary': 'Diary',
         'tab.library': 'Library',
+        'tab.stickers': 'Stickers',
         'tab.scope': 'Scope',
         'tab.options': 'Options',
         'mode.on': 'Persona mode is on',
@@ -361,6 +387,30 @@ window.__ModuleLoader__.load({
         'notice.libUpdated': 'Entry updated.',
         'notice.libDeleted': 'Entry deleted.',
         'notice.libCleared': 'This character\'s library is now empty.',
+        'sticker.enabled': 'Allow stickers',
+        'sticker.enabledHint': 'When on, the model can send this character\'s stickers with persona_sticker at fitting moments; it will not send one every turn.',
+        'sticker.add': 'Add sticker',
+        'sticker.name': 'Name',
+        'sticker.namePlaceholder': 'e.g. happy / speechless',
+        'sticker.search': 'Search stickers',
+        'sticker.noneMatch': 'No matching stickers.',
+        'sticker.tags': 'Tags (comma separated)',
+        'sticker.file': 'Image file',
+        'sticker.hint': 'PNG / JPEG / GIF / WebP, up to 2MB each.',
+        'sticker.empty': 'No stickers yet. Pick an image to add one.',
+        'sticker.cardHint': 'Stickers belong to the character: these are {name}\'s stickers, and switching characters switches them.',
+        'sticker.ioNote': 'Import/export covers only the current character\'s stickers.',
+        'sticker.deleteConfirm': 'Delete this sticker?',
+        'sticker.clear': 'Clear this card\'s stickers',
+        'sticker.clearConfirm': 'Clear every sticker for this character?',
+        'sticker.tooLarge': 'The image must be 2MB or smaller.',
+        'sticker.readFailed': 'Could not read the image.',
+        'sticker.chooseFirst': 'Choose an image first.',
+        'sticker.defaultName': 'Sticker',
+        'notice.stickerAdded': 'Sticker added.',
+        'notice.stickerDeleted': 'Sticker deleted.',
+        'notice.stickerCleared': 'This character\'s stickers are now empty.',
+        'notice.stickerToggled': 'Sticker setting updated.',
         'update.title': 'Version & updates',
         'update.hint': 'Compares the local version with package.json on GitHub main; it only checks, never installs.',
         'update.current': 'Current version v{version}',
@@ -979,6 +1029,7 @@ window.__ModuleLoader__.load({
         ['persona', 'tab.persona'],
         ['memory', 'tab.memory'],
         ['library', 'tab.library'],
+        ['stickers', 'tab.stickers'],
         ['diary', 'tab.diary'],
         ['options', 'tab.options'],
       ]
@@ -1052,6 +1103,9 @@ window.__ModuleLoader__.load({
           : null,
         tab === 'library'
           ? h(LibraryTab, { t, state, run, busy })
+          : null,
+        tab === 'stickers'
+          ? h(StickerTab, { t, state, run, busy })
           : null,
         tab === 'diary'
           ? h(DiaryTab, { t, state, run, busy })
@@ -1839,6 +1893,228 @@ window.__ModuleLoader__.load({
       )
     }
 
+    function StickerTab(props) {
+      const { t, state, run, busy } = props
+      const [name, setName] = useState('')
+      const [tags, setTags] = useState('')
+      const [dataUrl, setDataUrl] = useState('')
+      const [fileName, setFileName] = useState('')
+      const [query, setQuery] = useState('')
+      const card = state.activeCard || {}
+      const cardName = card.name || ''
+      const enabled = card.stickerEnabled !== false
+      const stickers = Array.isArray(state.stickers) ? state.stickers : []
+      const needle = query.trim().toLowerCase()
+      const filtered = stickers.filter((sticker) => {
+        if (!needle) return true
+        return `${sticker.name} ${sticker.tags.join(' ')}`.toLowerCase().includes(needle)
+      })
+
+      const pickFile = (event) => {
+        const file = event.target.files && event.target.files[0]
+        if (!file) return
+        if (file.size > 2 * 1024 * 1024) {
+          window.alert(t('sticker.tooLarge'))
+          event.target.value = ''
+          return
+        }
+        const reader = new FileReader()
+        reader.onload = () => {
+          const result = String(reader.result || '')
+          if (!result.startsWith('data:image/')) {
+            window.alert(t('sticker.readFailed'))
+            return
+          }
+          setDataUrl(result)
+          const base = file.name.replace(/\.[^.]+$/, '').slice(0, 60)
+          setFileName(base)
+          if (!name.trim()) setName(base)
+        }
+        reader.onerror = () => window.alert(t('sticker.readFailed'))
+        reader.readAsDataURL(file)
+      }
+
+      const add = () =>
+        run(async () => {
+          if (!dataUrl) throw new Error(t('sticker.chooseFirst'))
+          await store.mutate('/sticker', {
+            action: 'add',
+            name: name.trim() || fileName || t('sticker.defaultName'),
+            tags,
+            dataUrl,
+          })
+          setName('')
+          setTags('')
+          setDataUrl('')
+          setFileName('')
+        }, t('notice.stickerAdded'))
+
+      const remove = (sticker) => {
+        if (!window.confirm(t('sticker.deleteConfirm'))) return
+        run(() => store.mutate('/sticker', { action: 'delete', id: sticker.id }), t('notice.stickerDeleted'))
+      }
+
+      const clearAll = () => {
+        if (!window.confirm(t('sticker.clearConfirm'))) return
+        run(() => store.mutate('/sticker', { action: 'clear' }), t('notice.stickerCleared'))
+      }
+
+      const toggle = () =>
+        run(
+          () =>
+            store.mutate('/card', {
+              action: 'save',
+              card: { id: state.activeCardId, stickerEnabled: !enabled },
+            }),
+          t('notice.stickerToggled'),
+        )
+
+      return h(
+        'div',
+        { className: 'dspm-stack' },
+        h(
+          'div',
+          { className: 'dspm-card' },
+          h(
+            'div',
+            { className: 'dspm-row' },
+            h(
+              'div',
+              { className: 'dspm-card-title' },
+              t('sticker.enabled'),
+              h(InfoHint, { text: t('sticker.enabledHint') }),
+            ),
+            h(Switch, {
+              checked: enabled,
+              label: t('sticker.enabled'),
+              onChange: toggle,
+              disabled: busy,
+            }),
+          ),
+        ),
+        h(
+          'div',
+          { className: 'dspm-card' },
+          h(
+            'div',
+            { className: 'dspm-card-title' },
+            t('sticker.add'),
+            h(InfoHint, { text: t('sticker.hint') }),
+            h('span', { className: 'dspm-badge' }, stickers.length),
+          ),
+          h(
+            'div',
+            { className: 'dspm-grid-2' },
+            h(
+              Field,
+              { label: t('sticker.name') },
+              h('input', {
+                className: 'dspm-input',
+                value: name,
+                maxLength: 80,
+                placeholder: t('sticker.namePlaceholder'),
+                onChange: (event) => setName(event.target.value),
+              }),
+            ),
+            h(
+              Field,
+              { label: t('sticker.tags') },
+              h('input', {
+                className: 'dspm-input',
+                value: tags,
+                placeholder: '开心, 日常',
+                onChange: (event) => setTags(event.target.value),
+              }),
+            ),
+          ),
+          h(
+            Field,
+            { label: t('sticker.file') },
+            h('input', {
+              className: 'dspm-input',
+              type: 'file',
+              accept: 'image/png,image/jpeg,image/gif,image/webp',
+              onChange: pickFile,
+              disabled: busy,
+            }),
+          ),
+          dataUrl
+            ? h(
+                'div',
+                { className: 'dspm-sticker-preview' },
+                h('img', { src: dataUrl, alt: 'preview' }),
+                h(
+                  Btn,
+                  { variant: 'danger', onClick: () => setDataUrl(''), disabled: busy },
+                  t('btn.delete'),
+                ),
+              )
+            : null,
+          h(
+            'div',
+            { className: 'dspm-actions' },
+            h(
+              Btn,
+              { variant: 'primary', onClick: add, disabled: busy || !dataUrl },
+              t('btn.add'),
+            ),
+          ),
+        ),
+        h(
+          'div',
+          { className: 'dspm-toolbar' },
+          h('input', {
+            className: 'dspm-input dspm-search',
+            placeholder: t('sticker.search'),
+            value: query,
+            onChange: (event) => setQuery(event.target.value),
+          }),
+          h(
+            'div',
+            { className: 'dspm-actions' },
+            h(InfoHint, { text: t('sticker.cardHint', { name: cardName }) }),
+            h(InfoHint, { text: t('sticker.ioNote'), align: 'right' }),
+            h(DataIO, { t, kind: 'stickers', run, busy }),
+            h(
+              Btn,
+              { variant: 'danger', onClick: clearAll, disabled: busy || stickers.length === 0 },
+              t('sticker.clear'),
+            ),
+          ),
+        ),
+        filtered.length
+          ? h(
+              'div',
+              { className: 'dspm-sticker-grid' },
+              filtered.map((sticker) =>
+                h(
+                  'div',
+                  { className: 'dspm-sticker', key: sticker.id },
+                  h('img', {
+                    className: 'dspm-sticker-img',
+                    src: `${API}/sticker/${sticker.id}`,
+                    alt: sticker.name,
+                    loading: 'lazy',
+                  }),
+                  h('div', { className: 'dspm-sticker-name', title: sticker.name }, sticker.name),
+                  h(
+                    'div',
+                    { className: 'dspm-sticker-meta' },
+                    sticker.tags.map((tag) => h('span', { key: tag, className: 'dspm-tag' }, '#' + tag)),
+                    h('span', null, Math.max(1, Math.round(sticker.size / 1024)) + ' KB'),
+                  ),
+                  h(
+                    Btn,
+                    { variant: 'danger', onClick: () => remove(sticker), disabled: busy },
+                    t('btn.delete'),
+                  ),
+                ),
+              ),
+            )
+          : h(Empty, null, needle ? t('sticker.noneMatch') : t('sticker.empty')),
+      )
+    }
+
     function DiaryTab(props) {
       const { t, state, run, busy } = props
       const [title, setTitle] = useState('')
@@ -2395,6 +2671,13 @@ window.__ModuleLoader__.load({
 .dspm-lib-body { margin: 0; max-height: 200px; overflow: auto; white-space: pre-wrap; word-break: break-word; }
 .dspm-lib-link { color: var(--dsw-alias-state-business-primary, #4176e6); font-size: 11px; text-decoration: none; word-break: break-all; }
 .dspm-lib-link:hover { text-decoration: underline; }
+.dspm-sticker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 12px; }
+.dspm-sticker { display: flex; flex-direction: column; gap: 6px; padding: 10px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 10px; background: var(--dsw-alias-bg-layer-1); }
+.dspm-sticker-img { width: 100%; aspect-ratio: 1; object-fit: contain; border-radius: 8px; background: var(--dsw-alias-bg-base); }
+.dspm-sticker-preview { display: flex; align-items: center; gap: 10px; }
+.dspm-sticker-preview img { max-width: 180px; max-height: 180px; border-radius: 8px; }
+.dspm-sticker-name { font-weight: 600; font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dspm-sticker-meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; color: var(--dsw-alias-label-secondary); font-size: 11px; }
 .dspm-foot { margin: 0; color: var(--dsw-alias-label-secondary); font-size: 11px; word-break: break-all; }
 .dspm-chip { display: inline-flex; align-items: center; gap: 7px; padding: 4px 10px; border: 1px solid var(--dsw-alias-border-l1); border-radius: 999px; background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-secondary); font: inherit; font-size: 11px; cursor: pointer; }
 .dspm-chip.is-on { color: var(--dsw-alias-label-primary); border-color: var(--dsw-alias-border-l2); }
